@@ -760,11 +760,11 @@ class FuncInfo(object):
             code += "\n"
             if v.rettype:
                 code += f"    {v.rettype} raw_retval;\n"
-                code += f"    raw_retval = {fullname}({', '.join(raw_var_names)});\n"
+                code += f"    raw_retval = {self.cname}({', '.join(raw_var_names)});\n"
                 code += f"    VALUE value_retval = rbopencv_from(raw_retval);\n"
                 code += f"    return value_retval;\n"
             else:
-                code += f"    {fullname}({', '.join(raw_var_names)});\n"
+                code += f"    {self.cname}({', '.join(raw_var_names)});\n"
                 code += f"    return Qnil;\n"
             code += "}\n"
             return code
