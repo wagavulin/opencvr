@@ -6,13 +6,7 @@ from string import Template
 import pprint
 from collections import namedtuple
 
-# cname of auto-generation target functions
-g_target_funcs = [
-    "cv::imread",
-    "cv::imwrite",
-    "cv::arrowedLine",
-    "cv::circle",
-]
+g_supported_funcs = []
 
 forbidden_arg_types = ["void*"]
 
@@ -645,9 +639,49 @@ class FuncInfo(object):
             variant.dump(depth+1)
     # [for-debug-end]
 
+    def is_target_function(self):
+        supported_rettypes = [
+            "", # void
+            "Mat",
+            "bool",
+        ]
+        supported_argtypes = [
+            "Mat",
+            "Scalar",
+            "int",
+            "double",
+            "String",
+            "Point",
+            "vector_int",
+        ]
+        if self.classname:
+            return False # member function is not supported
+        strs = self.cname.split("::")
+        if not len(strs) == 2:
+            return False # only functions directly under cv namespace are supported
+        if not self.variants[0].rettype in supported_rettypes:
+            return False
+
+        num_mandatory_args = 0
+        num_optional_args = 0
+        for a in self.variants[0].args:
+            if not a.tp in supported_argtypes:
+                return False
+            if a.defval == "":
+                num_mandatory_args += 1
+            else:
+                num_optional_args += 1
+        if num_mandatory_args >= 10:
+            return False
+        if num_optional_args >= 10:
+            return False
+
+        return True
+
     def gen_code(self, codegen):
-        if not self.cname in g_target_funcs:
+        if not self.is_target_function():
             return ""
+        g_supported_funcs.append(self)
         all_classes = codegen.classes
         proto = self.get_wrapper_prototype(codegen)
         code = "%s\n{\n" % (proto,)
@@ -936,7 +970,7 @@ class PythonWrapperGenerator(object):
 
         self.code_ns_reg.write('static MethodDef methods_%s[] = {\n'%wname)
         for name, func in sorted(ns.funcs.items()):
-            if not func.cname in g_target_funcs:
+            if not func.is_target_function():
                 continue
             wrapper_name = func.get_wrapper_name()
             if func.isconstructor:
@@ -1137,3 +1171,16 @@ os.makedirs(dstdir, exist_ok=True)
 
 generator = PythonWrapperGenerator()
 generator.gen(srcfiles, dstdir)
+with open("generated/supported_funcs.txt", "w") as fout:
+    for func in g_supported_funcs:
+        if func.variants[0].rettype:
+            rettype = func.variants[0].rettype
+        else:
+            rettype = "void"
+        fout.write(f"{rettype} ")
+        fout.write(f"{func.cname}(")
+        for i, a in enumerate(func.variants[0].args):
+            if i > 0:
+                fout.write(", ")
+            fout.write(a.tp)
+        fout.write(")\n")
