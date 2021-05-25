@@ -455,8 +455,11 @@ VALUE rbopencv_from(const Range& r){
 
 template<>
 VALUE rbopencv_from(const Point& p){
-    TRACE_PRINTF("[rbopencv_from Point] not implemented\n");
-    return Qnil;
+    TRACE_PRINTF("[rbopencv_from Point]\n");
+    VALUE value_x = INT2NUM(p.x);
+    VALUE value_y = INT2NUM(p.y);
+    VALUE ret = rb_ary_new3(2, value_x, value_y);
+    return ret;
 }
 
 template<>

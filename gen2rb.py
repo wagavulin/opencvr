@@ -644,6 +644,7 @@ class FuncInfo(object):
             "", # void
             "Mat",
             "bool",
+            "Point",
         ]
         supported_argtypes = [
             "Mat",
