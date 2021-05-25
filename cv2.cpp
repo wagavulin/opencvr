@@ -122,8 +122,9 @@ bool rbopencv_to(VALUE obj, Scalar& s){
 
 template<>
 bool rbopencv_to(VALUE obj, bool& value){
-    TRACE_PRINTF("[rbopencv_to bool] not implemented\n");
-    return false;
+    TRACE_PRINTF("[rbopencv_to bool]\n");
+    value = obj == Qtrue ? true : false;
+    return true;
 }
 
 template<>

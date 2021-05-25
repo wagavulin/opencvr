@@ -648,6 +648,7 @@ class FuncInfo(object):
         supported_argtypes = [
             "Mat",
             "Scalar",
+            "bool",
             "int",
             "double",
             "String",
