@@ -188,8 +188,28 @@ bool rbopencv_to(VALUE obj, Size_<float>& sz){
 
 template<>
 bool rbopencv_to(VALUE obj, Rect& r){
-    TRACE_PRINTF("[rbopencv_to Rect] not implemented\n");
-    return false;
+    TRACE_PRINTF("[rbopencv_to Rect]\n");
+    long len = rb_array_len(obj);
+    if (len != 4) {
+        fprintf(stderr, "  # elements is not 4: %ld\n", len);
+        return false;
+    }
+    double tmp[4];
+    for (long i = 0; i < 4; i++) {
+        VALUE value_elem = rb_ary_entry(obj, i);
+        int value_type = TYPE(value_elem);
+        if (value_type == T_FLOAT) {
+            tmp[i] = NUM2DBL(value_elem);
+        } else if (value_type == T_FIXNUM) {
+            tmp[i] = FIX2INT(value_elem);
+        }
+    }
+    r.x = tmp[0];
+    r.y = tmp[1];
+    r.width = tmp[2];
+    r.height = tmp[3];
+    TRACE_PRINTF("  %f %f %f %f\n", r.x, r.y, r.width, r.height);
+    return true;
 }
 
 template<>

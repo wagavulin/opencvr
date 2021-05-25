@@ -652,6 +652,7 @@ class FuncInfo(object):
             "int",
             "double",
             "String",
+            "Rect",
             "Point",
             "vector_int",
         ]
