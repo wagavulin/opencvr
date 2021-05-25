@@ -674,6 +674,11 @@ class FuncInfo(object):
                 num_mandatory_args += 1
             else:
                 num_optional_args += 1
+            if a.py_outputarg:
+                # py_outputarg is True, it's used as return value,
+                # so rbopencv_from will be used
+                if not a.tp in supported_rettypes:
+                    return False
         if num_mandatory_args >= 10:
             return False
         if num_optional_args >= 10:
@@ -711,6 +716,9 @@ class FuncInfo(object):
             num_args = len(v.args)
             num_mandatory_args = 0
             num_optional_args = 0
+            retval_value_var_names = []
+            if not v.rettype == "":
+                retval_value_var_names.append("raw_retval")
             for a in v.args:
                 names.append(a.name)
                 value_var_name = f"value_{a.name}"
@@ -724,6 +732,8 @@ class FuncInfo(object):
                 raw_types.append(a.tp)
                 raw_var_name = f"raw_{a.name}"
                 raw_var_names.append(raw_var_name)
+                if a.py_outputarg:
+                    retval_value_var_names.append(raw_var_name)
             if num_mandatory_args >= 10:
                 raise ValueError(f"too many mandatory args (must be less than 10): {num_mandatory_args}")
             if num_optional_args >= 10:
@@ -795,14 +805,25 @@ class FuncInfo(object):
             code += "        return Qnil;\n"
             code += "    }\n"
             code += "\n"
-            if v.rettype:
+
+            if v.rettype == "":
+                code += f"    {self.cname}({', '.join(raw_var_names)});\n"
+            else:
                 code += f"    {v.rettype} raw_retval;\n"
                 code += f"    raw_retval = {self.cname}({', '.join(raw_var_names)});\n"
-                code += f"    VALUE value_retval = rbopencv_from(raw_retval);\n"
+
+            num_ruby_retvals = len(retval_value_var_names)
+            if num_ruby_retvals == 0:
+                code += f"    return Qnil;\n"
+            elif num_ruby_retvals == 1:
+                code += f"    VALUE value_retval = rbopencv_from({retval_value_var_names[0]});\n"
                 code += f"    return value_retval;\n"
             else:
-                code += f"    {self.cname}({', '.join(raw_var_names)});\n"
-                code += f"    return Qnil;\n"
+                code += f"    VALUE value_retval_array = rb_ary_new3({num_ruby_retvals}"
+                for retval_value_var_name in retval_value_var_names:
+                    code += f", rbopencv_from({retval_value_var_name})"
+                code += ");\n"
+                code += f"    return value_retval_array;\n"
             code += "}\n"
             return code
         return code
