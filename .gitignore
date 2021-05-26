@@ -1,4 +1,5 @@
 Makefile
 *.so
 *.o
-generated/
+/generated/
+/.vscode/
