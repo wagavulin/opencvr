@@ -6,7 +6,10 @@ from string import Template
 import pprint
 from collections import namedtuple
 
-g_supported_funcs = []
+# List of supported functions
+log_supported_funcs = []
+# List of unsupported functions
+log_unsupported_funcs = []
 
 forbidden_arg_types = ["void*"]
 
@@ -718,18 +721,18 @@ class FuncInfo(object):
             "vector_int",
         ]
         if self.classname:
-            return False # member function is not supported
+            return False, "member function is not supported"
         strs = self.cname.split("::")
         if not len(strs) == 2:
-            return False # only functions directly under cv namespace are supported
+            return False, "not directly under cv namespace"
         if not self.variants[0].rettype in supported_rettypes:
-            return False
+            return False, f"retval type is not supported: {self.variants[0].rettype}"
 
         num_mandatory_args = 0
         num_optional_args = 0
         for a in self.variants[0].args:
             if not a.tp in supported_argtypes:
-                return False
+                return False, f"input argument type is not supported: {a.name} {a.tp}"
             if a.defval == "":
                 num_mandatory_args += 1
             else:
@@ -738,18 +741,21 @@ class FuncInfo(object):
                 # py_outputarg is True, it's used as return value,
                 # so rbopencv_from will be used
                 if not a.tp in supported_rettypes:
-                    return False
+                    return False, f"output argument type is not supported: {a.name} {a.tp}"
         if num_mandatory_args >= 10:
-            return False
+            return False, f"too many mandatory arguments: {num_mandatory_args}"
         if num_optional_args >= 10:
-            return False
+            return False, f"too many optional arguments: {num_optional_args}"
 
-        return True
+        return True, ""
 
     def gen_code(self, codegen):
-        if not self.is_target_function():
+        is_target, reason = self.is_target_function()
+        if not is_target:
+            self.reason = reason
+            log_unsupported_funcs.append(self)
             return ""
-        g_supported_funcs.append(self)
+        log_supported_funcs.append(self)
         all_classes = codegen.classes
         proto = self.get_wrapper_prototype(codegen)
         code = "%s\n{\n" % (proto,)
@@ -1251,16 +1257,33 @@ os.makedirs(dstdir, exist_ok=True)
 
 generator = PythonWrapperGenerator()
 generator.gen(srcfiles, dstdir)
+
+def gen_proto_for_log(func_info):
+    proto = StringIO()
+    if func.variants[0].rettype:
+        rettype = func.variants[0].rettype
+    else:
+        rettype = "void"
+    proto.write(f"{rettype} ")
+    proto.write(f"{func.cname}(")
+    for i, a in enumerate(func.variants[0].args):
+        if i > 0:
+            proto.write(", ")
+        proto.write(a.tp)
+    proto.write(")")
+    ret = proto.getvalue()
+    proto.close()
+    return ret
+
 with open("generated/supported_funcs.txt", "w") as fout:
-    for func in g_supported_funcs:
-        if func.variants[0].rettype:
-            rettype = func.variants[0].rettype
-        else:
-            rettype = "void"
-        fout.write(f"{rettype} ")
-        fout.write(f"{func.cname}(")
-        for i, a in enumerate(func.variants[0].args):
-            if i > 0:
-                fout.write(", ")
-            fout.write(a.tp)
-        fout.write(")\n")
+    for func in log_supported_funcs:
+        proto = gen_proto_for_log(func)
+        fout.write(proto)
+        fout.write("\n")
+with open("generated/unsupported_funcs.txt", "w") as fout:
+    for func in log_unsupported_funcs:
+        proto = gen_proto_for_log(func)
+        fout.write(proto)
+        fout.write(" ")
+        fout.write(func.reason)
+        fout.write("\n")
