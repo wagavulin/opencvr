@@ -734,10 +734,6 @@ class FuncInfo(object):
                 raw_var_names.append(raw_var_name)
                 if a.py_outputarg:
                     retval_value_var_names.append(raw_var_name)
-            if num_mandatory_args >= 10:
-                raise ValueError(f"too many mandatory args (must be less than 10): {num_mandatory_args}")
-            if num_optional_args >= 10:
-                raise ValueError(f"too many optional args (must be less than 10): {num_optional_args}")
             idx_optional_start = num_mandatory_args
             idx_optional_end = num_mandatory_args + num_optional_args - 1
 
