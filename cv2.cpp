@@ -381,8 +381,8 @@ VALUE rbopencv_from(const size_t& value){
 
 template<>
 VALUE rbopencv_from(const int& value){
-    TRACE_PRINTF("[rbopencv_from int] not implemented\n");
-    return Qnil;
+    TRACE_PRINTF("[rbopencv_from int]\n");
+    return INT2NUM(value);
 }
 
 template<>

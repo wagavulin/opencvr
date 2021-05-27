@@ -650,7 +650,7 @@ class FuncInfo(object):
             #"Scalar",
             "bool",
             #"size_t",
-            #"int",
+            "int",
             #"uchar",
             #"double",
             #"float",
