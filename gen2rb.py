@@ -1056,7 +1056,8 @@ class PythonWrapperGenerator(object):
 
         self.code_ns_reg.write('static MethodDef methods_%s[] = {\n'%wname)
         for name, func in sorted(ns.funcs.items()):
-            if not func.is_target_function():
+            is_target, reason = func.is_target_function()
+            if not is_target:
                 continue
             wrapper_name = func.get_wrapper_name()
             if func.isconstructor:
