@@ -696,7 +696,7 @@ class FuncInfo(object):
             "double",
             #"float",
             "String",
-            #"Size",
+            "Size",
             #"Size_<float>",
             "Rect",
             #"Rect2d",
