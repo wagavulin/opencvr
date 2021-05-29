@@ -6,10 +6,7 @@ from string import Template
 import pprint
 from collections import namedtuple
 
-# List of supported functions
-log_supported_funcs = []
-# List of unsupported functions
-log_unsupported_funcs = []
+log_processed_funcs = []
 
 forbidden_arg_types = ["void*"]
 
@@ -720,60 +717,69 @@ class FuncInfo(object):
             #"RotatedRect",
             "vector_int",
         ]
-        if self.classname:
-            return False, "member function is not supported"
-        strs = self.cname.split("::")
-        if not len(strs) == 2:
-            return False, "not directly under cv namespace"
-        if not self.variants[0].rettype in supported_rettypes:
-            return False, f"retval type is not supported: {self.variants[0].rettype}"
 
-        num_mandatory_args = 0
-        num_optional_args = 0
-        for a in self.variants[0].args:
-            if not a.tp in supported_argtypes:
-                return False, f"input argument type is not supported: {a.name} {a.tp}"
-            if a.defval == "":
-                num_mandatory_args += 1
-            else:
-                num_optional_args += 1
-            if a.py_outputarg:
-                # py_outputarg is True, it's used as return value,
-                # so rbopencv_from will be used
-                if not a.tp in supported_rettypes:
-                    return False, f"output argument type is not supported: {a.name} {a.tp}"
-        if num_mandatory_args >= 10:
-            return False, f"too many mandatory arguments: {num_mandatory_args}"
-        if num_optional_args >= 10:
-            return False, f"too many optional arguments: {num_optional_args}"
-
-        return True, ""
+        num_supported_variants = 0
+        support_statuses = []
+        for v in self.variants:
+            num_mandatory_args = 0
+            num_optional_args = 0
+            if self.classname:
+                support_statuses.append((False, "member function is not supported"))
+                continue
+            strs = self.cname.split("::")
+            if not len(strs) == 2:
+                support_statuses.append((False, "not directly under cv namespace"))
+                continue
+            if not v.rettype in supported_rettypes:
+                support_statuses.append((False, f"retval type is not supported: {self.variants[0].rettype}"))
+                continue
+            need_continue = False
+            for a in v.args:
+                if not a.tp in supported_argtypes:
+                    support_statuses.append((False, f"input argument type is not supported: {a.name} {a.tp}"))
+                    need_continue = True
+                    break
+                if a.defval == "":
+                    num_mandatory_args += 1
+                else:
+                    num_optional_args += 1
+                if a.py_outputarg:
+                    # py_outputarg is True, it's used as return value,
+                    # so rbopencv_from will be used
+                    if not a.tp in supported_rettypes:
+                        support_statuses.append((False, f"output argument type is not supported: {a.name} {a.tp}"))
+                        need_continue = True
+                        break
+            if need_continue:
+                continue
+            if num_mandatory_args >= 10:
+                support_statuses.append((False, f"too many mandatory arguments: {num_mandatory_args}"))
+                continue
+            if num_optional_args >= 10:
+                support_statuses.append((False, f"too many optional arguments: {num_optional_args}"))
+                continue
+            support_statuses.append((True, ""))
+            num_supported_variants += 1
+        return num_supported_variants, support_statuses
 
     def gen_code(self, codegen):
-        is_target, reason = self.is_target_function()
-        if not is_target:
-            self.reason = reason
-            log_unsupported_funcs.append(self)
+        self.num_supported_variants, self.support_statuses = self.is_target_function()
+        log_processed_funcs.append(self)
+        if self.num_supported_variants == 0:
             return ""
-        log_supported_funcs.append(self)
-        all_classes = codegen.classes
+
         proto = self.get_wrapper_prototype(codegen)
         code = "%s\n{\n" % (proto,)
         code += "    using namespace %s;\n\n" % self.namespace.replace(".", "::")
-
-        selfinfo = None
-        ismethod = self.classname != "" and not self.isconstructor
-        fullname = self.name
-
-        if self.classname:
-            raise ValueError("[TODO] member function is not supported")
-
-        all_code_variants = []
-
         code += "    VALUE h = rb_check_hash_type(argv[argc-1]);\n"
         code += "    if (!NIL_P(h)) {\n        --argc;\n    }\n\n"
 
-        for v in self.variants[0:1]: # [TODO] supports only the 1st variant for now
+        code += "    std::string err_msg;\n"
+        code += f"    rbPrepareArgumentConversionErrorsStorage({self.num_supported_variants});\n"
+
+        for var_idx, v in enumerate(self.variants):
+            if not self.support_statuses[var_idx][0]:
+                continue
             names = []
             raw_types = []
             raw_var_names = []
@@ -822,72 +828,83 @@ class FuncInfo(object):
             #   idx_optional_start: 2 (index of the beginnig of optional arg (c))
             #   idx_optional_end: 4 (index of the end of optional arg (e))
 
+            code += "    {\n"
+
             for i in range(num_args):
                 if raw_default_values[i] == "":
-                    code += f"    {raw_types[i]} {raw_var_names[i]};\n"
+                    code += f"        {raw_types[i]} {raw_var_names[i]};\n"
                 else:
-                    code += f"    {raw_types[i]} {raw_var_names[i]} = {raw_default_values[i]};\n"
-                code += f"    VALUE {value_var_names[i]};\n"
+                    code += f"        {raw_types[i]} {raw_var_names[i]} = {raw_default_values[i]};\n"
+                code += f"        VALUE {value_var_names[i]};\n"
             code += "\n"
 
             scan_args_fmt = f"{num_mandatory_args}{num_optional_args}"
-            code += f"    int scan_ret = rb_scan_args(argc, argv, \"{scan_args_fmt}\""
+            code += f"        int scan_ret = rb_scan_args(argc, argv, \"{scan_args_fmt}\""
             for i in range(num_args):
                 code += f", &{value_var_names[i]}"
             code += ");\n"
 
-            code += "    bool conv_args_ok = true;\n"
+            code += "        bool conv_args_ok = true;\n"
             for i in range(num_mandatory_args):
-                code += f"    conv_args_ok &= rbopencv_to({value_var_names[i]}, {raw_var_names[i]});\n"
+                code += f"        conv_args_ok &= rbopencv_to({value_var_names[i]}, {raw_var_names[i]});\n"
+                code += f"        if (!conv_args_ok) {{\n"
+                code += f"            err_msg = \" can't parse '{v.args[i].name}'\";\n"
+                code += f"        }}\n"
             if num_optional_args >= 1:
                 for i in range(idx_optional_start, idx_optional_end+1):
                     argn = i + 1
-                    code += f"    if (scan_ret >= {argn}) {{\n"
-                    code += f"        conv_args_ok &= rbopencv_to({value_var_names[i]}, {raw_var_names[i]});\n"
-                    code += f"    }}\n"
+                    code += f"        if (scan_ret >= {argn}) {{\n"
+                    code += f"            conv_args_ok &= rbopencv_to({value_var_names[i]}, {raw_var_names[i]});\n"
+                    code += f"            if (!conv_args_ok) {{\n"
+                    code += f"                err_msg = \" can't parse '{v.args[i].name}'\";\n"
+                    code += f"            }}\n"
+                    code += f"        }}\n"
             code += "\n"
-            code += f"    // Parse keyword arguments\n"
-            code += f"    if (!NIL_P(h)) {{\n"
-            code += f"        ID table[{num_optional_args}];\n"
-            code += f"        VALUE values[{num_optional_args}];\n"
+            code += f"        // Parse keyword arguments\n"
+            code += f"        if (!NIL_P(h)) {{\n"
+            code += f"            ID table[{num_optional_args}];\n"
+            code += f"            VALUE values[{num_optional_args}];\n"
             for i in range(idx_optional_start, idx_optional_end+1):
                 j = i - idx_optional_start
-                code += f"        table[{j}] = rb_intern(\"{names[i]}\");\n"
-            code += f"        rb_get_kwargs(h, table, 0, {num_optional_args}, values);\n"
+                code += f"            table[{j}] = rb_intern(\"{names[i]}\");\n"
+            code += f"            rb_get_kwargs(h, table, 0, {num_optional_args}, values);\n"
             for i in range(idx_optional_start, idx_optional_end+1):
                 j = i - idx_optional_start
-                code += f"        if (values[{j}] == Qundef) {{\n"
-                code += f"            // Do nothing. Already set by arg w/o keyword, or use {raw_var_names[i]}' default value\n"
-                code += f"        }} else {{\n"
-                code += f"            conv_args_ok &= rbopencv_to(values[{j}], {raw_var_names[i]});\n"
-                code += f"        }}\n"
-            code += f"    }}\n"
-            code += "    if (!conv_args_ok) {\n"
-            code += "        fprintf(stderr, \"argument conversion failed\\n\");\n"
-            code += "        return Qnil;\n"
-            code += "    }\n"
-            code += "\n"
-
+                code += f"            if (values[{j}] == Qundef) {{\n"
+                code += f"                // Do nothing. Already set by arg w/o keyword, or use {raw_var_names[i]}' default value\n"
+                code += f"            }} else {{\n"
+                code += f"                conv_args_ok &= rbopencv_to(values[{j}], {raw_var_names[i]});\n"
+                code += f"                if (!conv_args_ok) {{\n"
+                code += f"                    err_msg = \"Can't parse '{v.args[i].name}'\";\n"
+                code += f"                }}\n"
+                code += f"            }}\n"
+            code += f"        }}\n"
+            code += "        if (conv_args_ok) {\n"
             if v.rettype == "":
-                code += f"    {self.cname}({', '.join(raw_var_names)});\n"
+                code += f"            {self.cname}({', '.join(raw_var_names)});\n"
             else:
-                code += f"    {v.rettype} raw_retval;\n"
-                code += f"    raw_retval = {self.cname}({', '.join(raw_var_names)});\n"
+                code += f"            {v.rettype} raw_retval;\n"
+                code += f"            raw_retval = {self.cname}({', '.join(raw_var_names)});\n"
 
             num_ruby_retvals = len(retval_value_var_names)
             if num_ruby_retvals == 0:
-                code += f"    return Qnil;\n"
+                code += f"            return Qnil;\n"
             elif num_ruby_retvals == 1:
-                code += f"    VALUE value_retval = rbopencv_from({retval_value_var_names[0]});\n"
-                code += f"    return value_retval;\n"
+                code += f"            VALUE value_retval = rbopencv_from({retval_value_var_names[0]});\n"
+                code += f"            return value_retval;\n"
             else:
-                code += f"    VALUE value_retval_array = rb_ary_new3({num_ruby_retvals}"
+                code += f"            VALUE value_retval_array = rb_ary_new3({num_ruby_retvals}"
                 for retval_value_var_name in retval_value_var_names:
                     code += f", rbopencv_from({retval_value_var_name})"
                 code += ");\n"
-                code += f"    return value_retval_array;\n"
-            code += "}\n"
-            return code
+                code += f"            return value_retval_array;\n"
+            code += "        } else {\n"
+            code += "            rbPopulateArgumentConversionErrors(err_msg);\n"
+            code += "        }\n"
+            code += "    }\n"
+        code += f"    rbRaiseCVOverloadException(\"{self.name}\");\n"
+        code += "    return Qnil;\n"
+        code += "}\n\n"
         return code
 
 
@@ -1056,8 +1073,8 @@ class PythonWrapperGenerator(object):
 
         self.code_ns_reg.write('static MethodDef methods_%s[] = {\n'%wname)
         for name, func in sorted(ns.funcs.items()):
-            is_target, reason = func.is_target_function()
-            if not is_target:
+            num_supported_variants, support_statuses = func.is_target_function()
+            if num_supported_variants == 0:
                 continue
             wrapper_name = func.get_wrapper_name()
             if func.isconstructor:
@@ -1259,15 +1276,15 @@ os.makedirs(dstdir, exist_ok=True)
 generator = PythonWrapperGenerator()
 generator.gen(srcfiles, dstdir)
 
-def gen_proto_for_log(func_info):
+def gen_proto_for_log(func_info, var_idx):
     proto = StringIO()
-    if func.variants[0].rettype:
-        rettype = func.variants[0].rettype
+    if func.variants[var_idx].rettype:
+        rettype = func.variants[var_idx].rettype
     else:
         rettype = "void"
     proto.write(f"{rettype} ")
     proto.write(f"{func.cname}(")
-    for i, a in enumerate(func.variants[0].args):
+    for i, a in enumerate(func.variants[var_idx].args):
         if i > 0:
             proto.write(", ")
         proto.write(a.tp)
@@ -1276,15 +1293,19 @@ def gen_proto_for_log(func_info):
     proto.close()
     return ret
 
-with open("generated/supported_funcs.txt", "w") as fout:
-    for func in log_supported_funcs:
-        proto = gen_proto_for_log(func)
-        fout.write(proto)
-        fout.write("\n")
-with open("generated/unsupported_funcs.txt", "w") as fout:
-    for func in log_unsupported_funcs:
-        proto = gen_proto_for_log(func)
-        fout.write(proto)
-        fout.write(" ")
-        fout.write(func.reason)
-        fout.write("\n")
+f1 = open("generated/supported_funcs.txt", "w")
+f2 = open("generated/unsuppored_funcs.txt", "w")
+for func in log_processed_funcs:
+    for var_idx, v in enumerate(func.variants):
+        is_supported, reason = func.support_statuses[var_idx]
+        proto = gen_proto_for_log(func, var_idx)
+        if is_supported:
+            f1.write(proto)
+            f1.write("\n")
+        else:
+            f2.write(proto)
+            f2.write(" ")
+            f2.write(reason)
+            f2.write("\n")
+f1.close()
+f2.close()

@@ -1,5 +1,6 @@
 #include <ruby.h>
 #include <opencv2/opencv.hpp>
+#include "opencv2/core/utils/tls.hpp"
 #include <string>
 
 #include "generated/rbopencv_generated_include.h"
@@ -17,6 +18,31 @@ static VALUE mCV2;
 static VALUE cMat;
 
 using vector_int = std::vector<int>;
+
+TLSData<std::vector<std::string> > conversionErrorsTLS;
+
+inline void rbPrepareArgumentConversionErrorsStorage(std::size_t size)
+{
+    std::vector<std::string>& conversionErrors = conversionErrorsTLS.getRef();
+    conversionErrors.clear();
+    conversionErrors.reserve(size);
+}
+
+void rbRaiseCVOverloadException(const std::string& functionName)
+{
+    std::string msg(functionName);
+    const std::vector<std::string>& conversionErrors = conversionErrorsTLS.getRef();
+    //const std::size_t conversionErrorsCount = conversionErrors.size();
+    for (const auto& convErr : conversionErrors) {
+        msg += convErr;
+    }
+    rb_raise(rb_eTypeError, "%s", msg.c_str());
+}
+
+void rbPopulateArgumentConversionErrors(const std::string& msg)
+{
+    conversionErrorsTLS.getRef().push_back(msg);
+}
 
 struct WrapMat {
     cv::Mat* mat;
@@ -75,6 +101,11 @@ static bool rbopencv_to(VALUE obj, T& p){
 template<>
 bool rbopencv_to(VALUE obj, Mat& m){
     TRACE_PRINTF("[rbopencv_to Mat]\n");
+    if (TYPE(obj) != T_DATA)
+        return false;
+    RTypedData *typed_data_p = (RTypedData*)obj;
+    if (typed_data_p->type != &mat_type)
+        return false;
     cv::Mat* raw_img = get_mat(obj);
     m = *raw_img;
     return true;
@@ -101,6 +132,8 @@ bool rbopencv_to(VALUE obj, void*& ptr){
 template<>
 bool rbopencv_to(VALUE obj, Scalar& s){
     TRACE_PRINTF("[rbopencv_to Scalar]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
     long len = rb_array_len(obj);
     if (len > 4) {
         fprintf(stderr, "  too many elements: %ld\n", len);
@@ -136,10 +169,8 @@ bool rbopencv_to(VALUE obj, size_t& value){
 template<>
 bool rbopencv_to(VALUE obj, int& value){
     TRACE_PRINTF("[rbopencv_to int]\n");
-    if (!FIXNUM_P(obj)) {
-        fprintf(stderr, "[%s] cannot convert\n", __func__);
+    if (!FIXNUM_P(obj))
         return false;
-    }
     value = FIX2INT(obj);
     return true;
 }
@@ -166,10 +197,8 @@ bool rbopencv_to(VALUE obj, float& value){
 template<>
 bool rbopencv_to(VALUE obj, String& value){
     TRACE_PRINTF("[rbopencv_to String]\n");
-    if (TYPE(obj) != RUBY_T_STRING) {
-        fprintf(stderr, "[%s] cannot convert\n", __func__);
+    if (TYPE(obj) != RUBY_T_STRING)
         return false;
-    }
     value = RSTRING_PTR(obj);
     return true;
 }
@@ -177,6 +206,8 @@ bool rbopencv_to(VALUE obj, String& value){
 template<>
 bool rbopencv_to(VALUE obj, Size& sz){
     TRACE_PRINTF("[rbopencv_to Size]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
     long len = rb_array_len(obj);
     if (len != 2) {
         fprintf(stderr, "  # elements is not 2: %ld\n", len);
@@ -207,6 +238,8 @@ bool rbopencv_to(VALUE obj, Size_<float>& sz){
 template<>
 bool rbopencv_to(VALUE obj, Rect& r){
     TRACE_PRINTF("[rbopencv_to Rect]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
     long len = rb_array_len(obj);
     if (len != 4) {
         fprintf(stderr, "  # elements is not 4: %ld\n", len);
@@ -245,6 +278,8 @@ bool rbopencv_to(VALUE obj, Range& r){
 template<>
 bool rbopencv_to(VALUE obj, Point& p){
     TRACE_PRINTF("[rbopencv_to Point]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
     p.x = FIX2INT(rb_ary_entry(obj, 0));
     p.y = FIX2INT(rb_ary_entry(obj, 1));
     return true;
@@ -349,6 +384,8 @@ bool rbopencv_to(VALUE obj, RotatedRect& dst){
 template<>
 bool rbopencv_to(VALUE obj, vector_int& value){
     TRACE_PRINTF("[rbopencv_to vector_int]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
     long len = rb_array_len(obj);
     for (long i = 0; i < len; i++) {
         VALUE value_elem = rb_ary_entry(obj, i);
