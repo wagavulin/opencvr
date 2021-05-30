@@ -122,3 +122,9 @@ $ make
 $ cd samples
 $ ./tiny.rb
 ```
+
+## License
+
+Apache License 2.0. See License.txt.
+
+`gen2rb.py` is created by modifying `gen2.py` in OpenCV, which is under Apache Licsense Version 2.0. Refer [the original file](https://github.com/opencv/opencv/blob/4.5.2/modules/python/src2/gen2.py).
