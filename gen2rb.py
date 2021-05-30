@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+# About thie file
+# This file is created by modifying gen2.py in OpenCV, which is under
+# Apache License Version 2.0. Refer the original file:
+# https://github.com/opencv/opencv/blob/4.5.2/modules/python/src2/gen2.py
+#
+# About modified parts
+# Copyright 2021 wagavulin
+
 from io import StringIO
 import hdr_parser, sys, re, os
 from string import Template
