@@ -1,5 +1,7 @@
 # ROpenCV2: Support Status
 
+Complete list of supported functions is on [Github Wiki page](https://github.com/wagavulin/ropencv2/wiki/Supported-functions).
+
 ## Functions
 
 Support functions which satisfy all the conditions below:
