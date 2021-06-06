@@ -190,8 +190,9 @@ bool rbopencv_to(VALUE obj, double& value){
 
 template<>
 bool rbopencv_to(VALUE obj, float& value){
-    TRACE_PRINTF("[rbopencv_to float] not implemented\n");
-    return false;
+    TRACE_PRINTF("[rbopencv_to float]\n");
+    value = NUM2DBL(obj);
+    return true;
 }
 
 template<>
