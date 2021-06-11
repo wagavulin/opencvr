@@ -662,7 +662,7 @@ class FuncInfo(object):
             #"int64",
             #"String",
             #"std::string",
-            #"Size",
+            "Size",
             #"Size_<float>",
             #"Rect",
             #"Rect2d",

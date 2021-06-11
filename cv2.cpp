@@ -481,8 +481,11 @@ VALUE rbopencv_from(const std::string& value){
 
 template<>
 VALUE rbopencv_from(const Size& sz){
-    TRACE_PRINTF("[rbopencv_from Size] not implemented\n");
-    return Qnil;
+    TRACE_PRINTF("[rbopencv_from Size]\n");
+    VALUE value_width = INT2NUM(sz.width);
+    VALUE value_height = INT2NUM(sz.height);
+    VALUE ret = rb_ary_new3(2, value_width, value_height);
+    return ret;
 }
 
 template<>
