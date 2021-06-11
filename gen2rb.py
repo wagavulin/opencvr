@@ -791,122 +791,136 @@ class FuncInfo(object):
         for var_idx, v in enumerate(self.variants):
             if not self.support_statuses[var_idx][0]:
                 continue
-            names = []
-            raw_types = []
-            raw_var_names = []
-            raw_default_values = []
-            value_var_names = []
-            num_args = len(v.args)
-            num_mandatory_args = 0
-            num_optional_args = 0
-            retval_value_var_names = []
-            if not v.rettype == "":
-                retval_value_var_names.append("raw_retval")
+            # variables for raw variable definitions (rvd)
+            rvd_raw_types = []
+            rvd_raw_var_names = []
+            rvd_raw_default_values = []
+            # variables for value variable definitions (vvd)
+            vvd_names = []
+            vvd_value_var_names = []
+            vvd_corr_raw_var_names = []
+            # variables for rb_scan_args() (rsa)
+            rsa_num_mandatory_args = 0
+            rsa_num_optional_args = 0
+            # variables for C++ API calling (cac)
+            cac_args = []
+            cac_raw_out_var_names = []
+            # variables for return values handling (rh)
+            rh_raw_var_names = []
+
+            # Collect values
+            if v.rettype:
+                rh_raw_var_names.append("raw_retval")
             for a in v.args:
-                names.append(a.name)
-                value_var_name = f"value_{a.name}"
-                value_var_names.append(value_var_name)
-                if a.defval == "":
-                    num_mandatory_args += 1
-                    raw_default_values.append("")
+                if a.inputarg == False and a.outputarg == True and a.tp[-1] == "*":
+                    # If the arg is pointer and for OUT arg (e.g. int* x),
+                    # it's declared as non-pointer (int raw_x).
+                    rvd_raw_types.append(a.tp[:-1])
+                    # And "&raw_x" is used when calling C++ API.
+                    cac_args.append(f"&raw_{a.name}")
                 else:
-                    num_optional_args += 1
-                    raw_default_values.append(a.defval)
-                raw_types.append(a.tp)
-                raw_var_name = f"raw_{a.name}"
-                raw_var_names.append(raw_var_name)
-                if a.py_outputarg:
-                    retval_value_var_names.append(raw_var_name)
-            idx_optional_start = num_mandatory_args
-            idx_optional_end = num_mandatory_args + num_optional_args - 1
+                    rvd_raw_types.append(a.tp)
+                    cac_args.append(f"raw_{a.name}")
+                rvd_raw_var_names.append(f"raw_{a.name}")
+                rvd_raw_default_values.append(a.defval)
+                if a.py_inputarg:
+                    vvd_names.append(a.name)
+                    vvd_value_var_names.append(f"value_{a.name}")
+                    vvd_corr_raw_var_names.append(f"raw_{a.name}")
+                    if a.defval:
+                        rsa_num_optional_args += 1
+                    else:
+                        rsa_num_mandatory_args += 1
+                if a.outputarg:
+                    cac_raw_out_var_names.append(f"raw_{a.name}")
+                    rh_raw_var_names.append(f"raw_{a.name}")
 
-            # Meaning of variables in this function
-            # If a method foo can take 5 arguments (all of them are int)
-            #   a, b: mandatory
-            #   c, d, e: optional
-            # and called with: foo(10, 20, 30, e=50)
-            #   mandatory args (a and b) are specified
-            #   1 optional arg (c) is specified without keyword
-            #   1 optional arg (e) is specified with keyword
-            # Each variable will be:
-            #   len(v.args): 5
-            #   names: ["a", "b", "c", "d", "e"]
-            #   value_var_names: ["value_a", "value_b", "value_c", "value_d", "value_e"]
-            #   raw_var_name: ["raw_a", "raw_b", "raw_c", "raw_d", "raw_e"]
-            #   raw_types: ["int", "int", "int", "int", "int", "int"]
-            #   num_mandatory_args: 2
-            #   num_optional_args: 3
-            #   idx_optional_start: 2 (index of the beginnig of optional arg (c))
-            #   idx_optional_end: 4 (index of the end of optional arg (e))
-
+            # Generate raw variable definitions (rvd)
             code += "    {\n"
-
-            for i in range(num_args):
-                if raw_default_values[i] == "":
-                    code += f"        {raw_types[i]} {raw_var_names[i]};\n"
+            for i in range(len(rvd_raw_types)):
+                if rvd_raw_default_values[i]:
+                    code += f"        {rvd_raw_types[i]} {rvd_raw_var_names[i]} = {rvd_raw_default_values[i]};\n"
                 else:
-                    code += f"        {raw_types[i]} {raw_var_names[i]} = {raw_default_values[i]};\n"
-                code += f"        VALUE {value_var_names[i]};\n"
+                    code += f"        {rvd_raw_types[i]} {rvd_raw_var_names[i]};\n"
             code += "\n"
 
-            scan_args_fmt = f"{num_mandatory_args}{num_optional_args}"
-            code += f"        int scan_ret = rb_scan_args(argc, argv, \"{scan_args_fmt}\""
-            for i in range(num_args):
-                code += f", &{value_var_names[i]}"
+            # Generate value variable definitions (vvd)
+            for i in range(len(vvd_value_var_names)):
+                code += f"        VALUE {vvd_value_var_names[i]};\n"
+            code += "\n"
+
+            # Call rb_scan_args() (rsa)
+            rsa_scan_args_fmt = f"{rsa_num_mandatory_args}{rsa_num_optional_args}"
+            code += f"        int scan_ret = rb_scan_args(argc, argv, \"{rsa_scan_args_fmt}\""
+            for i in range(len(vvd_value_var_names)):
+                code += f", &{vvd_value_var_names[i]}"
             code += ");\n"
 
+            # Check the result of rb_scan_args()
             code += "        bool conv_args_ok = true;\n"
-            for i in range(num_mandatory_args):
-                code += f"        conv_args_ok &= rbopencv_to({value_var_names[i]}, {raw_var_names[i]});\n"
+            for i in range(rsa_num_mandatory_args):
+                code += f"        conv_args_ok &= rbopencv_to({vvd_value_var_names[i]}, {vvd_corr_raw_var_names[i]});\n"
                 code += f"        if (!conv_args_ok) {{\n"
-                code += f"            err_msg = \" can't parse '{v.args[i].name}'\";\n"
+                code += f"            err_msg = \" can't parse '{vvd_names[i]}'\";\n"
                 code += f"        }}\n"
-            if num_optional_args >= 1:
-                for i in range(idx_optional_start, idx_optional_end+1):
-                    argn = i + 1
-                    code += f"        if (scan_ret >= {argn}) {{\n"
-                    code += f"            conv_args_ok &= rbopencv_to({value_var_names[i]}, {raw_var_names[i]});\n"
+            rsa_idx_optional_start = rsa_num_mandatory_args
+            rsa_idx_optional_end = rsa_num_mandatory_args + rsa_num_optional_args - 1
+            if rsa_num_optional_args >= 1:
+                for i in range(rsa_idx_optional_start, rsa_idx_optional_end+1):
+                    code += f"        if (scan_ret >= {i+1}) {{\n"
+                    code += f"            conv_args_ok &= rbopencv_to({vvd_value_var_names[i]}, {vvd_corr_raw_var_names[i]});\n"
                     code += f"            if (!conv_args_ok) {{\n"
-                    code += f"                err_msg = \" can't parse '{v.args[i].name}'\";\n"
+                    code += f"                err_msg = \" can't parse '{vvd_names[i]}'\";\n"
                     code += f"            }}\n"
                     code += f"        }}\n"
             code += "\n"
-            code += f"        // Parse keyword arguments\n"
-            code += f"        if (!NIL_P(h)) {{\n"
-            code += f"            ID table[{num_optional_args}];\n"
-            code += f"            VALUE values[{num_optional_args}];\n"
-            for i in range(idx_optional_start, idx_optional_end+1):
-                j = i - idx_optional_start
-                code += f"            table[{j}] = rb_intern(\"{names[i]}\");\n"
-            code += f"            rb_get_kwargs(h, table, 0, {num_optional_args}, values);\n"
-            for i in range(idx_optional_start, idx_optional_end+1):
-                j = i - idx_optional_start
-                code += f"            if (values[{j}] == Qundef) {{\n"
-                code += f"                // Do nothing. Already set by arg w/o keyword, or use {raw_var_names[i]}' default value\n"
-                code += f"            }} else {{\n"
-                code += f"                conv_args_ok &= rbopencv_to(values[{j}], {raw_var_names[i]});\n"
-                code += f"                if (!conv_args_ok) {{\n"
-                code += f"                    err_msg = \"Can't parse '{v.args[i].name}'\";\n"
-                code += f"                }}\n"
-                code += f"            }}\n"
-            code += f"        }}\n"
+
+            # Call rb_get_kwargs() for keyword arguments
+            if rsa_num_optional_args >= 1:
+                code += f"        if (!NIL_P(h)) {{\n"
+                code += f"            ID table[{rsa_num_optional_args}];\n"
+                code += f"            VALUE values[{rsa_num_optional_args}];\n"
+                for i in range(rsa_idx_optional_start, rsa_idx_optional_end+1):
+                    j = i - rsa_idx_optional_start
+                    code += f"            table[{j}] = rb_intern(\"{vvd_names[i]}\");\n"
+                code += f"            rb_get_kwargs(h, table, 0, {rsa_num_optional_args}, values);\n"
+
+                # Check the result of rb_get_kwargs()
+                for i in range(rsa_idx_optional_start, rsa_idx_optional_end+1):
+                    j = i - rsa_idx_optional_start
+                    code += f"            if (values[{j}] == Qundef) {{\n"
+                    code += f"                // Do nothing. Already set by arg w/o keyword, or use {vvd_corr_raw_var_names[i]} default value\n"
+                    code += f"            }} else {{\n"
+                    code += f"                conv_args_ok &= rbopencv_to(values[{j}], {vvd_corr_raw_var_names[i]});\n"
+                    code += f"                if (!conv_args_ok) {{\n"
+                    code += f"                    err_msg = \"Can't parse '{vvd_names[i]}'\";\n"
+                    code += f"                }}\n"
+                    code += f"            }}\n"
+                code += f"        }}\n"
+
+            # Call C++ API if arguments are ready
             code += "        if (conv_args_ok) {\n"
             if v.rettype == "":
-                code += f"            {self.cname}({', '.join(raw_var_names)});\n"
+                code += f"            {self.cname}({', '.join(cac_args)});\n"
             else:
                 code += f"            {v.rettype} raw_retval;\n"
-                code += f"            raw_retval = {self.cname}({', '.join(raw_var_names)});\n"
+                code += f"            raw_retval = {self.cname}({', '.join(cac_args)});\n"
 
-            num_ruby_retvals = len(retval_value_var_names)
+            # Convert the return value(s)
+            num_ruby_retvals = len(rh_raw_var_names)
             if num_ruby_retvals == 0:
+                # If no retvals for ruby, return Qnil
                 code += f"            return Qnil;\n"
             elif num_ruby_retvals == 1:
-                code += f"            VALUE value_retval = rbopencv_from({retval_value_var_names[0]});\n"
+                # If 1 ruby retval, return it as VALUE
+                retval_raw_var_name = rh_raw_var_names[0]
+                code += f"            VALUE value_retval = rbopencv_from({retval_raw_var_name});\n"
                 code += f"            return value_retval;\n"
             else:
+                # If 2 or more ruby retvals, return as array
                 code += f"            VALUE value_retval_array = rb_ary_new3({num_ruby_retvals}"
-                for retval_value_var_name in retval_value_var_names:
-                    code += f", rbopencv_from({retval_value_var_name})"
+                for raw_var_name in rh_raw_var_names:
+                    code += f", rbopencv_from({raw_var_name})"
                 code += ");\n"
                 code += f"            return value_retval_array;\n"
             code += "        } else {\n"
