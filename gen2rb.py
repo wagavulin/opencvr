@@ -656,6 +656,7 @@ class FuncInfo(object):
             "bool",
             #"size_t",
             "int",
+            "int*", # tentative
             #"uchar",
             "double",
             #"float",
@@ -697,6 +698,7 @@ class FuncInfo(object):
             "bool",
             #"size_t",
             "int",
+            "int*", # tentative
             #"uchar",
             "double",
             #"float",
