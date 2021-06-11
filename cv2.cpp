@@ -12,6 +12,45 @@
 #define TRACE_PRINTF
 #endif
 
+namespace cv { // cv for bind test
+double bindTest1(int a, Point& b, int* c, int d, RNG* rng, double e){
+    //printf("[C++ bindTest1] a: %d, b: [%d, %d], c: %d, d: %d, e: %f\n", a, b.x, b.y, *c, d, e);
+    b.x += 10;
+    b.y -= 10;
+    *c = 23;
+    double ret = (double)a + (double)(b.x) + (double)(b.y) + (double)(*c) + (double)d + e;
+    //printf("ret: %f\n", ret);
+    return ret;
+}
+
+CV_EXPORTS_W void bindTest2(int a){
+    int tmp = a + 10;
+    if (tmp) {}
+}
+
+CV_EXPORTS_W int bindTest3(int a){
+    return a + a;
+}
+
+CV_EXPORTS_W void bindTest4(int a, CV_IN_OUT Point& pt){
+    pt.x += a;
+    pt.y -= a;
+}
+
+CV_EXPORTS_W void bindTest5(int a, CV_IN_OUT Point& pt, CV_OUT int* x){
+    pt.x += a;
+    pt.y -= a;
+    *x = 23;
+}
+
+CV_EXPORTS_W bool bindTest6(int a, CV_IN_OUT Point& pt, CV_OUT int* x){
+    pt.x += a;
+    pt.y -= a;
+    *x = 23;
+    return true;
+}
+} // cv for bind test
+
 using namespace cv;
 
 static VALUE mCV2;
