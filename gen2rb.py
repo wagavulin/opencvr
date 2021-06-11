@@ -726,6 +726,7 @@ class FuncInfo(object):
             #"TermCriteria",
             #"RotatedRect",
             "vector_int",
+            "RNG*", # ignorable
         ]
 
         num_supported_variants = 0
