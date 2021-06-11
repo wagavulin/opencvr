@@ -449,8 +449,8 @@ VALUE rbopencv_from(const uchar& value){
 
 template<>
 VALUE rbopencv_from(const double& value){
-    TRACE_PRINTF("[rbopencv_from double] not implemented\n");
-    return Qnil;
+    TRACE_PRINTF("[rbopencv_from double]\n");
+    return DBL2NUM(value);
 }
 
 template<>

@@ -657,7 +657,7 @@ class FuncInfo(object):
             #"size_t",
             "int",
             #"uchar",
-            #"double",
+            "double",
             #"float",
             #"int64",
             #"String",
