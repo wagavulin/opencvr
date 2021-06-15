@@ -1346,19 +1346,23 @@ def gen_proto_for_log(func_info, var_idx):
     proto.close()
     return ret
 
-f1 = open("generated/supported_funcs.txt", "w")
-f2 = open("generated/unsuppored_funcs.txt", "w")
-for func in log_processed_funcs:
-    for var_idx, v in enumerate(func.variants):
-        is_supported, reason = func.support_statuses[var_idx]
-        proto = gen_proto_for_log(func, var_idx)
-        if is_supported:
-            f1.write(proto)
-            f1.write("\n")
-        else:
-            f2.write(proto)
-            f2.write(" ")
-            f2.write(reason)
-            f2.write("\n")
-f1.close()
-f2.close()
+with open("generated/support-status.csv", "w") as fo:
+    fo.write("cname,supported,reason\n")
+    for f in log_processed_funcs:
+        for var_idx, v in enumerate(f.variants):
+            is_supported, reason = f.support_statuses[var_idx]
+            fo.write(f"{f.cname},{is_supported},{reason}\n")
+
+with open("generated/args.csv", "w") as fo:
+    fo.write("ns,classname,name,cname,ctor,static,phantom,rettype")
+    fo.write(",tp,name,defval,isarray,arraylen,arraycvt")
+    fo.write(",inarg,outarg,retarg,rvalueref,py_inarg,py_outarg\n")
+    for f in log_processed_funcs:
+        for var_idx, v in enumerate(f.variants):
+            is_supported, reason = f.support_statuses[var_idx]
+            for a in v.args:
+                fo.write(f"{f.namespace},{f.classname},{f.name},{f.cname},{f.isconstructor},{f.is_static}")
+                fo.write(f",{v.isphantom},\"{v.rettype}\"")
+                fo.write(f",{a.tp},{a.name},\"{a.defval}\",{a.isarray},{a.arraylen},{a.arraycvt}")
+                fo.write(f",{a.inputarg},{a.outputarg},{a.returnarg},{a.isrvalueref},{a.py_inputarg},{a.py_outputarg}")
+                fo.write("\n")
