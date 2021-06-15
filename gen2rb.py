@@ -13,6 +13,7 @@ import hdr_parser, sys, re, os
 from string import Template
 import pprint
 from collections import namedtuple
+import copy
 
 log_processed_funcs = []
 
@@ -808,22 +809,43 @@ class FuncInfo(object):
             # variables for return values handling (rh)
             rh_raw_var_names = []
 
+            ordered_args = []
+            tmp_mandatory_args = []
+            tmp_out_pyin_args = []
+            tmp_optional_args = []
+            for a in v.args:
+                if a.inputarg == False and a.outputarg == True and a.py_inputarg == True and a.defval == "":
+                    tmp_out_pyin_args.append(copy.deepcopy(a))
+                else:
+                    if a.defval:
+                        tmp_optional_args.append(copy.deepcopy(a))
+                    else:
+                        tmp_mandatory_args.append(copy.deepcopy(a))
+            ordered_args.extend(tmp_mandatory_args)
+            ordered_args.extend(tmp_out_pyin_args)
+            ordered_args.extend(tmp_optional_args)
+
             # Collect values
             if v.rettype:
                 rh_raw_var_names.append("raw_retval")
+            # C++ API calling is based on original arguments order
             for a in v.args:
+                if a.inputarg == False and a.outputarg == True and a.tp[-1] == "*":
+                    # "&raw_x" is used when calling C++ API.
+                    cac_args.append(f"&raw_{a.name}")
+                else:
+                    cac_args.append(f"raw_{a.name}")
+            # Other process is based on ordered arguments
+            for a in ordered_args:
                 if a.inputarg == False and a.outputarg == True and a.tp[-1] == "*":
                     # If the arg is pointer and for OUT arg (e.g. int* x),
                     # it's declared as non-pointer (int raw_x).
                     rvd_raw_types.append(a.tp[:-1])
-                    # And "&raw_x" is used when calling C++ API.
-                    cac_args.append(f"&raw_{a.name}")
                 else:
                     rvd_raw_types.append(a.tp)
-                    cac_args.append(f"raw_{a.name}")
                 rvd_raw_var_names.append(f"raw_{a.name}")
                 rvd_raw_default_values.append(a.defval)
-                if a.py_inputarg:
+                if a.inputarg:
                     vvd_names.append(a.name)
                     vvd_value_var_names.append(f"value_{a.name}")
                     vvd_corr_raw_var_names.append(f"raw_{a.name}")
@@ -831,6 +853,12 @@ class FuncInfo(object):
                         rsa_num_optional_args += 1
                     else:
                         rsa_num_mandatory_args += 1
+                else:
+                    if a.outputarg == True and a.py_inputarg == True:
+                        vvd_names.append(a.name)
+                        vvd_value_var_names.append(f"value_{a.name}")
+                        vvd_corr_raw_var_names.append(f"raw_{a.name}")
+                        rsa_num_optional_args += 1
                 if a.outputarg:
                     cac_raw_out_var_names.append(f"raw_{a.name}")
                     rh_raw_var_names.append(f"raw_{a.name}")
