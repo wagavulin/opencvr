@@ -702,7 +702,7 @@ class FuncInfo(object):
             "int*", # tentative
             #"uchar",
             "double",
-            #"float",
+            "float",
             "String",
             "Size",
             #"Size_<float>",
