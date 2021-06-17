@@ -1329,23 +1329,6 @@ os.makedirs(dstdir, exist_ok=True)
 generator = PythonWrapperGenerator()
 generator.gen(srcfiles, dstdir)
 
-def gen_proto_for_log(func_info, var_idx):
-    proto = StringIO()
-    if func.variants[var_idx].rettype:
-        rettype = func.variants[var_idx].rettype
-    else:
-        rettype = "void"
-    proto.write(f"{rettype} ")
-    proto.write(f"{func.cname}(")
-    for i, a in enumerate(func.variants[var_idx].args):
-        if i > 0:
-            proto.write(", ")
-        proto.write(a.tp)
-    proto.write(")")
-    ret = proto.getvalue()
-    proto.close()
-    return ret
-
 with open("generated/support-status.csv", "w") as fo:
     fo.write("cname,supported,reason\n")
     for f in log_processed_funcs:
