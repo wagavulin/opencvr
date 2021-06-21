@@ -739,9 +739,6 @@ class FuncInfo(object):
                 support_statuses.append((False, "member function is not supported"))
                 continue
             strs = self.cname.split("::")
-            if not len(strs) == 2:
-                support_statuses.append((False, "not directly under cv namespace"))
-                continue
             if not v.rettype in supported_rettypes:
                 support_statuses.append((False, f"retval type is not supported: {self.variants[0].rettype}"))
                 continue
@@ -1119,8 +1116,6 @@ class PythonWrapperGenerator(object):
 
 
     def gen_namespace(self, ns_name):
-        if not ns_name == "cv":
-            return
         ns = self.namespaces[ns_name]
         wname = normalize_class_name(ns_name)
 
@@ -1287,7 +1282,7 @@ class PythonWrapperGenerator(object):
                 code = func.gen_code(self)
                 self.code_funcs.write(code)
             self.gen_namespace(ns_name)
-            self.code_ns_init.write('CVPY_MODULE("{}", {});\n'.format(ns_name[2:], normalize_class_name(ns_name)))
+            self.code_ns_init.write('CVRB_MODULE("{}", {});\n'.format(ns_name[2:], normalize_class_name(ns_name)))
 
         # step 4: generate the code for enum types
         enumlist = list(self.enums.values())
@@ -1307,7 +1302,7 @@ class PythonWrapperGenerator(object):
         self.save(output_path, "rbopencv_generated_enums.h", self.code_enums)
         # self.save(output_path, "pyopencv_generated_types.h", self.code_type_publish)
         # self.save(output_path, "pyopencv_generated_types_content.h", self.code_types)
-        # self.save(output_path, "pyopencv_generated_modules.h", self.code_ns_init)
+        self.save(output_path, "rbopencv_generated_modules.h", self.code_ns_init)
         self.save(output_path, "rbopencv_generated_modules_content.h", self.code_ns_reg)
         # self.save_json(output_path, "pyopencv_signatures.json", self.py_signatures)
 

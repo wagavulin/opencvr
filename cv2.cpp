@@ -53,7 +53,6 @@ CV_EXPORTS_W bool bindTest6(int a, CV_IN_OUT Point& pt, CV_OUT int* x){
 
 using namespace cv;
 
-static VALUE mCV2;
 static VALUE cMat;
 
 using vector_int = std::vector<int>;
@@ -704,11 +703,62 @@ static void init_submodule_cv(VALUE module, MethodDef method_defs[], ConstDef co
     }
 }
 
+// 1st arg (module) is the module of "CV2"
+static void init_submodule(VALUE module, const char* name, MethodDef method_defs[], ConstDef const_defs[]){
+    // traverse and create nested submodules
+    std::string s = name;
+    size_t i = s.find('.');
+    VALUE parent_mod = module;
+    while (i < s.length() && i != std::string::npos)
+    {
+        size_t j = s.find('.', i);
+        if (j == std::string::npos)
+            j = s.length();
+        std::string short_name = s.substr(i, j-i);
+        std::string full_name = s.substr(0, j);
+        i = j+1;
+        std::string module_short_name{short_name};
+        // Ruby module name must begins with uppercase
+        module_short_name[0] = toupper(module_short_name[0]);
+
+        if (module_short_name == "")
+            parent_mod = module;
+        else {
+            int name_sym = rb_intern(module_short_name.c_str());
+            int is_defined = rb_const_defined(parent_mod, name_sym);
+            VALUE submod;
+            if (is_defined)
+                submod = rb_const_get(parent_mod, name_sym);
+            else
+                submod = rb_define_module_under(parent_mod, module_short_name.c_str());
+            parent_mod = submod;
+        }
+    }
+
+    MethodDef *method_def = method_defs;
+    while (method_def->name) {
+        rb_define_module_function(parent_mod, method_def->name, method_def->wrapper_func, -1);
+        method_def++;
+    }
+    ConstDef *const_def = const_defs;
+    while (const_def->name) {
+        // Need to check whether the 1st character is upper case.
+        // cv::datasets defines both uppercase and lowercase constants (e.g. "CIRCLE" and "circle")
+        if (const_def->name[0] != '_' && isupper(const_def->name[0]))
+            rb_define_const(parent_mod, const_def->name, INT2FIX(const_def->val));
+        const_def++;
+    }
+}
+
 extern "C" {
 void Init_cv2(){
-    mCV2 = rb_define_module("CV2");
 
-    init_submodule_cv(mCV2, methods_cv, consts_cv);
+    VALUE mCV2 = rb_define_module("CV2");
+
+#define CVRB_MODULE(NAMESTR, NAME) \
+    init_submodule(mCV2, "CV2" NAMESTR, methods_##NAME, consts_##NAME)
+    #include "generated/rbopencv_generated_modules.h"
+#undef CVPY_MODULE
 
     cMat = rb_define_class_under(mCV2, "Mat", rb_cObject);
     rb_define_alloc_func(cMat, wrap_mat_alloc);
