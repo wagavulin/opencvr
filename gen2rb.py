@@ -689,6 +689,8 @@ class FuncInfo(object):
             #"TermCriteria",
             #"RotatedRect",
             #"Moments",
+            # Manual bindings
+            "vector_Mat",
         ]
         supported_argtypes = [
             "Mat",
@@ -728,6 +730,8 @@ class FuncInfo(object):
             #"RotatedRect",
             "vector_int",
             "RNG*", # ignorable
+            # Manual bindings
+            "vector_Mat",
         ]
 
         num_supported_variants = 0
