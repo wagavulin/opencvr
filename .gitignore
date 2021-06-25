@@ -3,3 +3,5 @@ Makefile
 *.o
 /generated/
 /.vscode/
+settings.sh
+headers.txt
