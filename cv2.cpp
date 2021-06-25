@@ -201,8 +201,11 @@ bool rbopencv_to(VALUE obj, bool& value){
 
 template<>
 bool rbopencv_to(VALUE obj, size_t& value){
-    TRACE_PRINTF("[rbopencv_to size_t] not implemented\n");
-    return false;
+    TRACE_PRINTF("[rbopencv_to size_t]\n");
+    if (!FIXNUM_P(obj))
+        return false;
+    value = FIX2ULONG(obj);
+    return true;
 }
 
 template<>
@@ -216,8 +219,11 @@ bool rbopencv_to(VALUE obj, int& value){
 
 template<>
 bool rbopencv_to(VALUE obj, uchar& value){
-    TRACE_PRINTF("[rbopencv_to uchar] not implemented\n");
-    return false;
+    TRACE_PRINTF("[rbopencv_to uchar]\n");
+    if (!FIXNUM_P(obj))
+        return false;
+    value = FIX2ULONG(obj); // [Todo: narrowing conversion]
+    return true;
 }
 
 template<>
@@ -489,8 +495,8 @@ VALUE rbopencv_from(const bool& value){
 
 template<>
 VALUE rbopencv_from(const size_t& value){
-    TRACE_PRINTF("[rbopencv_from size_t] not implemented\n");
-    return Qnil;
+    TRACE_PRINTF("[rbopencv_from size_t]\n");
+    return ULONG2NUM(value);
 }
 
 template<>
@@ -501,8 +507,8 @@ VALUE rbopencv_from(const int& value){
 
 template<>
 VALUE rbopencv_from(const uchar& value){
-    TRACE_PRINTF("[rbopencv_from uchar] not implemented\n");
-    return Qnil;
+    TRACE_PRINTF("[rbopencv_from uchar]\n");
+    return INT2FIX(value);
 }
 
 template<>
@@ -513,8 +519,8 @@ VALUE rbopencv_from(const double& value){
 
 template<>
 VALUE rbopencv_from(const float& value){
-    TRACE_PRINTF("[rbopencv_from float] not implemented\n");
-    return Qnil;
+    TRACE_PRINTF("[rbopencv_from float]\n");
+    return DBL2NUM(value);
 }
 
 template<>
