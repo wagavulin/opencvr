@@ -55,4 +55,28 @@ class BindTest < Test::Unit::TestCase
     assert_equal(ret[1][1], 9)
     assert_equal(ret[2], 23)
   end
+
+  def test_bind_primitive_types
+    ret = CV2.bindTest_InOut_bool(true)
+    assert_equal(ret, false)
+    ret = CV2.bindTest_InOut_uchar(10)
+    assert_equal(ret, 20)
+    ret = CV2.bindTest_InOut_int(10)
+    assert_equal(ret, 20)
+    ret = CV2.bindTest_Out_intp()
+    assert_equal(ret, 10)
+    ret = CV2.bindTest_InOut_size_t(10)
+    assert_equal(ret, 20)
+    ret = CV2.bindTest_InOut_float(1)
+    assert_equal(ret, 1.5)
+    ret = CV2.bindTest_InOut_double(1)
+    assert_equal(ret, 1.5)
+  end
+
+  def test_bind_basic_classes
+    ret = CV2.bindTest_InOut_Size([100, 200])
+    assert_equal(ret, [110, 210])
+    ret = CV2.bindTest_InOut_Point([100, 200])
+    assert_equal(ret, [110, 210])
+  end
 end
