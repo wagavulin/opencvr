@@ -56,6 +56,14 @@ class BindTest < Test::Unit::TestCase
     assert_equal(ret[2], 23)
   end
 
+  def test_bind_Mat
+    m1 = CV2.imread(__dir__ + "/images/200x200bgrw.png")
+    assert_equal(m1.at(0, 0), [255, 0, 0])
+    m2 = CV2.bindTest_InOut_Mat(m1)
+    assert_equal(m1.at(0, 0), [100, 110, 120])
+    assert_equal(m2.at(0, 0), [100, 110, 120])
+  end
+
   def test_bind_primitive_types
     ret = CV2.bindTest_InOut_bool(true)
     assert_equal(ret, false)

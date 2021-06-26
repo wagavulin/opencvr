@@ -39,6 +39,12 @@ CV_EXPORTS_W bool bindTest6(int a, CV_IN_OUT Point& pt, CV_OUT int* x){
     return true;
 }
 
+CV_EXPORTS_W void bindTest_InOut_Mat(CV_IN_OUT Mat& a){
+    a.at<Vec3b>(0, 0)[0] = 100;
+    a.at<Vec3b>(0, 0)[1] = 110;
+    a.at<Vec3b>(0, 0)[2] = 120;
+}
+
 CV_EXPORTS_W void bindTest_InOut_bool(CV_IN_OUT bool& a){
     a = !a;
 }
