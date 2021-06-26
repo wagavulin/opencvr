@@ -79,4 +79,36 @@ class BindTest < Test::Unit::TestCase
     ret = CV2.bindTest_InOut_Point([100, 200])
     assert_equal(ret, [110, 210])
   end
+
+  def test_mat_1
+    m1 = CV2.imread(__dir__ + "/images/200x200bgrw.png")
+    c = m1.at(50, 50)
+    assert_equal(c[0], 255)
+    assert_equal(c[1], 0)
+    assert_equal(c[2], 0)
+    c = m1.at(50, 150)
+    assert_equal(c[0], 0)
+    assert_equal(c[1], 255)
+    assert_equal(c[2], 0)
+    c = m1.at(150, 50)
+    assert_equal(c[0], 0)
+    assert_equal(c[1], 0)
+    assert_equal(c[2], 255)
+    c = m1.at(150, 150)
+    assert_equal(c[0], 255)
+    assert_equal(c[1], 255)
+    assert_equal(c[2], 255)
+  end
+
+  def test_mat_at
+    m1 = CV2.imread(__dir__ + "/images/alpha.png", CV2::IMREAD_GRAYSCALE)
+    assert_equal(m1.channels, 1)
+    assert_equal(m1.at(0, 0), 255)
+    m3 = CV2.imread(__dir__ + "/images/alpha.png", CV2::IMREAD_COLOR)
+    assert_equal(m3.channels, 3)
+    assert_equal(m3.at(0, 0), [255, 255, 255])
+    m4 = CV2.imread(__dir__ + "/images/alpha.png", CV2::IMREAD_UNCHANGED)
+    assert_equal(m4.channels, 4)
+    assert_equal(m4.at(0, 0), [255, 255, 255, 64])
+  end
 end

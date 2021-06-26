@@ -82,6 +82,32 @@ static VALUE wrap_mat_channels(VALUE self){
     return INT2FIX(ret);
 }
 
+static VALUE wrap_mat_at(VALUE self, VALUE row, VALUE col){
+    cv::Mat* raw_mat = get_mat(self);
+    int raw_row = FIX2INT(row);
+    int raw_col = FIX2INT(col);
+    int channels = raw_mat->channels();
+    VALUE ret = Qnil;
+    if (channels == 1) {
+        uchar u = raw_mat->at<uchar>(raw_row, raw_col);
+        ret = INT2FIX(u);
+    } else if (channels == 3) {
+        Vec3b v = raw_mat->at<Vec3b>(raw_row, raw_col);
+        VALUE value_b = INT2NUM(v[0]);
+        VALUE value_g = INT2NUM(v[1]);
+        VALUE value_r = INT2NUM(v[2]);
+        ret = rb_ary_new3(3, value_b, value_g, value_r);
+    } else if (channels == 4) {
+        Vec4b v = raw_mat->at<Vec4b>(raw_row, raw_col);
+        VALUE value_b = INT2NUM(v[0]);
+        VALUE value_g = INT2NUM(v[1]);
+        VALUE value_r = INT2NUM(v[2]);
+        VALUE value_a = INT2NUM(v[3]);
+        ret = rb_ary_new3(4, value_b, value_g, value_r, value_a);
+    }
+    return ret;
+}
+
 static VALUE wrap_mat_cols(VALUE self){
     int ret = get_mat(self)->cols;
     return INT2FIX(ret);
@@ -764,6 +790,7 @@ void Init_cv2(){
     cMat = rb_define_class_under(mCV2, "Mat", rb_cObject);
     rb_define_alloc_func(cMat, wrap_mat_alloc);
     rb_define_private_method(cMat, "initialize", RUBY_METHOD_FUNC(wrap_mat_init), 0);
+    rb_define_method(cMat, "at", RUBY_METHOD_FUNC(wrap_mat_at), 2);
     rb_define_method(cMat, "cols", RUBY_METHOD_FUNC(wrap_mat_cols), 0);
     rb_define_method(cMat, "rows", RUBY_METHOD_FUNC(wrap_mat_rows), 0);
     rb_define_method(cMat, "channels", RUBY_METHOD_FUNC(wrap_mat_channels), 0);
