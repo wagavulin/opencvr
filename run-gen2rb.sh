@@ -10,9 +10,11 @@ fi
 target_header_list="$opencv_build_dir/modules/python_bindings_generator/headers.txt"
 export PYTHONPATH="$opencv_src_dir/modules/python/src2"
 
+rm -f headers.txt
 if [ $bindtest_only -eq 1 ]; then
-    echo "Bind only test functions"
-    touch headers.txt # generate empty file
+    echo "Bind only test functions and imgcodecs.hpp"
+    touch headers.txt
+    echo "$opencv_src_dir/modules/imgcodecs/include/opencv2/imgcodecs.hpp" >> headers.txt
 else
     cp $target_header_list headers.txt
 fi
