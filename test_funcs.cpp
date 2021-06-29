@@ -39,6 +39,14 @@ CV_EXPORTS_W bool bindTest6(int a, CV_IN_OUT Point& pt, CV_OUT int* x){
     return true;
 }
 
+CV_EXPORTS_W double bindTest_overload(Point a, Point b, double c){
+    return a.x + a.y + b.x + b.y + c;
+}
+
+CV_EXPORTS_W double bindTest_overload(RotatedRect a){
+    return a.center.x + a.center.y + a.size.width + a.size.height + a.angle;
+}
+
 CV_EXPORTS_W void bindTest_InOut_Mat(CV_IN_OUT Mat& a){
     a.at<Vec3b>(0, 0)[0] = 100;
     a.at<Vec3b>(0, 0)[1] = 110;

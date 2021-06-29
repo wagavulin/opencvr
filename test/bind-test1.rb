@@ -56,6 +56,13 @@ class BindTest < Test::Unit::TestCase
     assert_equal(ret[2], 23)
   end
 
+  def test_bind_overload
+    ret = CV2.bindTest_overload([1, 2], [3, 4], 5)
+    assert_equal(ret, 15)
+    ret = CV2.bindTest_overload([[1, 2], [3, 4], 5])
+    assert_equal(ret, 15)
+  end
+
   def test_bind_Mat
     m1 = CV2.imread(__dir__ + "/images/200x200bgrw.png")
     assert_equal(m1.at(0, 0), [255, 0, 0])

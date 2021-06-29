@@ -10,6 +10,9 @@ CV_EXPORTS_W void bindTest4(int a, CV_IN_OUT Point& pt);
 CV_EXPORTS_W void bindTest5(int a, CV_IN_OUT Point& pt, CV_OUT int* x);
 CV_EXPORTS_W bool bindTest6(int a, CV_IN_OUT Point& pt, CV_OUT int* x);
 
+CV_EXPORTS_W double bindTest_overload(Point a, Point b, double c);
+CV_EXPORTS_W double bindTest_overload(RotatedRect a);
+
 CV_EXPORTS_W void bindTest_InOut_Mat(CV_IN_OUT Mat& a);
 CV_EXPORTS_W void bindTest_InOut_bool(CV_IN_OUT bool& a);
 CV_EXPORTS_W void bindTest_InOut_uchar(CV_IN_OUT uchar& a);

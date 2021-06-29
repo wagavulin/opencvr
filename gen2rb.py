@@ -787,7 +787,8 @@ class FuncInfo(object):
         code = "%s\n{\n" % (proto,)
         code += "    using namespace %s;\n\n" % self.namespace.replace(".", "::")
         code += "    VALUE h = rb_check_hash_type(argv[argc-1]);\n"
-        code += "    if (!NIL_P(h)) {\n        --argc;\n    }\n\n"
+        code += "    if (!NIL_P(h)) {\n        --argc;\n    }\n"
+        code += "    int arity = rb_check_arity(argc, 0, UNLIMITED_ARGUMENTS);\n\n"
 
         code += "    std::string err_msg;\n"
         code += f"    rbPrepareArgumentConversionErrorsStorage({self.num_supported_variants});\n"
@@ -867,7 +868,7 @@ class FuncInfo(object):
                     rh_raw_var_names.append(f"raw_{a.name}")
 
             # Generate raw variable definitions (rvd)
-            code += "    {\n"
+            code += f"    if (arity >= {rsa_num_mandatory_args}) {{\n"
             for i in range(len(rvd_raw_types)):
                 if rvd_raw_default_values[i]:
                     code += f"        {rvd_raw_types[i]} {rvd_raw_var_names[i]} = {rvd_raw_default_values[i]};\n"
