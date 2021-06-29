@@ -264,8 +264,13 @@ bool rbopencv_to(VALUE obj, Size& sz){
 
 template<>
 bool rbopencv_to(VALUE obj, Size_<float>& sz){
-    TRACE_PRINTF("[rbopencv_to Size_<float>] not implemented\n");
-    return false;
+    TRACE_PRINTF("[rbopencv_to Size_<float>]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    bool ret = true;
+    ret &= rbopencv_to(rb_ary_entry(obj, 0), sz.width);
+    ret &= rbopencv_to(rb_ary_entry(obj, 1), sz.height);
+    return true;
 }
 
 template<>
@@ -320,8 +325,13 @@ bool rbopencv_to(VALUE obj, Point& p){
 
 template<>
 bool rbopencv_to(VALUE obj, Point2f& p){
-    TRACE_PRINTF("[rbopencv_to Point2f] not implemented\n");
-    return false;
+    TRACE_PRINTF("[rbopencv_to Point2f]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    bool ret = true;
+    ret &= rbopencv_to(rb_ary_entry(obj, 0), p.x);
+    ret &= rbopencv_to(rb_ary_entry(obj, 1), p.y);
+    return ret;
 }
 
 template<>
@@ -410,8 +420,14 @@ bool rbopencv_to(VALUE obj, TermCriteria& dst){
 
 template<>
 bool rbopencv_to(VALUE obj, RotatedRect& dst){
-    TRACE_PRINTF("[rbopencv_to RotatedRect] not implemented\n");
-    return false;
+    TRACE_PRINTF("[rbopencv_to RotatedRect]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    bool ret = true;
+    ret &= rbopencv_to(rb_ary_entry(obj, 0), dst.center);
+    ret &= rbopencv_to(rb_ary_entry(obj, 1), dst.size);
+    ret &= rbopencv_to(rb_ary_entry(obj, 2), dst.angle);
+    return true;
 }
 
 template<>
@@ -542,7 +558,10 @@ VALUE rbopencv_from(const Size& sz){
 template<>
 VALUE rbopencv_from(const Size_<float>& sz){
     TRACE_PRINTF("[rbopencv_from Size_<float>] not implemented\n");
-    return Qnil;
+    VALUE value_width = rbopencv_from(sz.width);
+    VALUE value_height = rbopencv_from(sz.height);
+    VALUE ret = rb_ary_new3(2, value_width, value_height);
+    return ret;
 }
 
 template<>
@@ -574,8 +593,11 @@ VALUE rbopencv_from(const Point& p){
 
 template<>
 VALUE rbopencv_from(const Point2f& p){
-    TRACE_PRINTF("[rbopencv_from Point2f] not implemented\n");
-    return Qnil;
+    TRACE_PRINTF("[rbopencv_from Point2f]\n");
+    VALUE value_x = rbopencv_from(p.x);
+    VALUE value_y = rbopencv_from(p.y);
+    VALUE ret = rb_ary_new3(2, value_x, value_y);
+    return ret;
 }
 
 template<>
@@ -677,7 +699,11 @@ VALUE rbopencv_from(const TermCriteria& src){
 template<>
 VALUE rbopencv_from(const RotatedRect& src){
     TRACE_PRINTF("[rbopencv_from RotatedRect] not implemented\n");
-    return Qnil;
+    VALUE value_center = rbopencv_from(src.center);
+    VALUE value_size = rbopencv_from(src.size);
+    VALUE value_angle = rbopencv_from(src.angle);
+    VALUE ret = rb_ary_new3(3, value_center, value_size, value_angle);
+    return ret;
 }
 
 template<>

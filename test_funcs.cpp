@@ -78,9 +78,27 @@ CV_EXPORTS_W void bindTest_InOut_Size(CV_IN_OUT Size& a){
     a.height += 10;
 }
 
+CV_EXPORTS_W void bindTest_InOut_Size2f(CV_IN_OUT Size2f& a){
+    a.width += 0.5;
+    a.height += 0.5;
+}
+
 CV_EXPORTS_W void bindTest_InOut_Point(CV_IN_OUT Point& a){
     a.x += 10;
     a.y += 10;
+}
+
+CV_EXPORTS_W void bindTest_InOut_Point2f(CV_IN_OUT Point2f& a){
+    a.x += 0.5;
+    a.y += 0.5;
+}
+
+CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a){
+    a.center.x += 0.5;
+    a.center.y += 0.5;
+    a.size.width += 0.5;
+    a.size.height += 0.5;
+    a.angle += 0.5;
 }
 
 }

@@ -84,8 +84,18 @@ class BindTest < Test::Unit::TestCase
   def test_bind_basic_classes
     ret = CV2.bindTest_InOut_Size([100, 200])
     assert_equal(ret, [110, 210])
+    ret = CV2.bindTest_InOut_Size2f([20.5, 21.5])
+    assert_equal(ret, [21.0, 22.0])
+    ret = CV2.bindTest_InOut_Size2f([20, 21])
+    assert_equal(ret, [20.5, 21.5])
     ret = CV2.bindTest_InOut_Point([100, 200])
     assert_equal(ret, [110, 210])
+    ret = CV2.bindTest_InOut_Point2f([10.5, 11.5])
+    assert_equal(ret, [11.0, 12.0])
+    ret = CV2.bindTest_InOut_Point2f([10, 11])
+    assert_equal(ret, [10.5, 11.5])
+    ret = CV2.bindTest_InOut_RotatedRect([[100, 200], [10, 20], 30])
+    assert_equal(ret, [[100.5, 200.5], [10.5, 20.5], 30.5])
   end
 
   def test_mat_1

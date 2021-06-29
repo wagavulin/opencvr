@@ -670,7 +670,7 @@ class FuncInfo(object):
             #"Rect2d",
             #"Ragne",
             "Point",
-            #"Point2f",
+            "Point2f",
             #"Point3f",
             #"Vec4d",
             #"Vec4f",
@@ -687,10 +687,11 @@ class FuncInfo(object):
             #"std::tuple<Ts...>",
             #"std::pair<int, double>",
             #"TermCriteria",
-            #"RotatedRect",
+            "RotatedRect",
             #"Moments",
             # Manual bindings
             "vector_Mat",
+            "Size2f", # Is this same as Size_<float>?
         ]
         supported_argtypes = [
             "Mat",
@@ -712,7 +713,7 @@ class FuncInfo(object):
             #"Rect2d",
             #"Range",
             "Point",
-            #"Point2f",
+            "Point2f",
             #"Point2d",
             #"Point3f",
             #"Point3d",
@@ -727,11 +728,12 @@ class FuncInfo(object):
             #"Vec2i",
             #"std::vector<_Tp>",
             #"TermCriteria",
-            #"RotatedRect",
+            "RotatedRect",
             "vector_int",
             "RNG*", # ignorable
             # Manual bindings
             "vector_Mat",
+            "Size2f", # Is this same as Size_<float>?
         ]
 
         num_supported_variants = 0
