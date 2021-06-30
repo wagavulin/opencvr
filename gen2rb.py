@@ -691,6 +691,7 @@ class FuncInfo(object):
             #"Moments",
             # Manual bindings
             "vector_Mat",
+            "vector_Point",
             "Size2f", # Is this same as Size_<float>?
         ]
         supported_argtypes = [
@@ -733,6 +734,7 @@ class FuncInfo(object):
             "RNG*", # ignorable
             # Manual bindings
             "vector_Mat",
+            "vector_Point",
             "Size2f", # Is this same as Size_<float>?
         ]
 

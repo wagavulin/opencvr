@@ -26,5 +26,6 @@ CV_EXPORTS_W void bindTest_InOut_Size2f(CV_IN_OUT Size2f& a);
 CV_EXPORTS_W void bindTest_InOut_Point(CV_IN_OUT Point& a);
 CV_EXPORTS_W void bindTest_InOut_Point2f(CV_IN_OUT Point2f& a);
 CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a);
+CV_EXPORTS_W void bindTest_InOut_vector_Point(CV_IN_OUT std::vector<Point>& a);
 
 } // cv

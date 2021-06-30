@@ -109,4 +109,15 @@ CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a){
     a.angle += 0.5;
 }
 
+CV_EXPORTS_W void bindTest_InOut_vector_Point(CV_IN_OUT std::vector<Point>& a){
+    Point p1{10, 11};
+    Point p2{20, 21};
+    for (Point& p : a) {
+        p.x += 1;
+        p.y += 1;
+    }
+    a.push_back(p1);
+    a.push_back(p2);
+}
+
 }

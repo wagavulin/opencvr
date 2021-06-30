@@ -17,6 +17,7 @@ using namespace cv;
 static VALUE cMat;
 
 using vector_int = std::vector<int>;
+using vector_Point = std::vector<Point>;
 using vector_Mat = std::vector<Mat>;
 
 TLSData<std::vector<std::string> > conversionErrorsTLS;
@@ -460,6 +461,23 @@ bool rbopencv_to(VALUE obj, vector_Mat& value){
     }
     return true;
 }
+
+template<>
+bool rbopencv_to(VALUE obj, vector_Point& value){
+    TRACE_PRINTF("[rbopencv_to vector_Point]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    long len = rb_array_len(obj);
+    for (long i = 0; i < len; i++) {
+        VALUE value_elem = rb_ary_entry(obj, i);
+        Point point;
+        bool to_ret = rbopencv_to(value_elem, point);
+        if (!to_ret)
+            return false;
+        value.push_back(point);
+    }
+    return true;
+}
 // End manual bindings
 
 template<typename T>
@@ -720,6 +738,18 @@ VALUE rbopencv_from(const std::vector<Mat>& value){
     VALUE ret = rb_ary_new2(size);
     for (const Mat& mat : value) {
         VALUE item = rbopencv_from(mat);
+        rb_ary_push(ret, item);
+    }
+    return ret;
+}
+
+template<>
+VALUE rbopencv_from(const std::vector<Point>& value){
+    TRACE_PRINTF("[rbopencv_from std::vector<Point>]\n");
+    size_t size = value.size();
+    VALUE ret = rb_ary_new2(size);
+    for (const Point& point : value) {
+        VALUE item = rbopencv_from(point);
         rb_ary_push(ret, item);
     }
     return ret;
