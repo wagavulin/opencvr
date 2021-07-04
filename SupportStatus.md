@@ -34,17 +34,40 @@ All enums and constants directly under `cv` namespace are supported.
 * `cv::Mat`
 * `cv::Scalar`
 * `bool`
+* `size_t`
 * `int`
+* `int*`
+* `uchar`
 * `double`
+* `float`
 * `cv::String`
 * `cv::Size`
 * `cv::Rect`
-* `Point`
+* `cv::Point`
+* `cv::Point2f`
+* `cv::RotatedRect`
+* `std::vector<int>`
+* `std::vector<cv::Mat>`
+* `std::vector<cv::Point>`
+* `cv::Size2f`
 
 ### Output argument and return value
 
 * `void`
 * `cv::Mat`
 * `bool`
+* `size_t`
 * `int`
-* `Point`
+* `int*`
+* `uchar`
+* `double`
+* `float`
+* `cv::Size`
+* `cv::Point`
+* `cv::Point2f`
+* `cv::RotatedRect`
+* `std::vector<cv::Mat>`
+* `std::vector<cv::Point>`
+* `cv::Size2f`
+
+

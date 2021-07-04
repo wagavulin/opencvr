@@ -68,63 +68,51 @@ In ruby world, numo-narray is a famous matrix library, but ropencv2 does not rep
 * I'm not sure such requirement really exists
 * I'm not familiary with numo-narray C API and therefore not sure it's possible or not
 
-## How to build
+## How to install
 
-### Prerequisites
+### From gem
 
-To build and use ropencv2, OpenCV and python binding have to be built and installed because ropencv2 uses some files generated in python binding building steps.
+ropencv2 gem has not been created yet.
 
-This explanation assuemes that you have already built and installed OpenCV by using the following directories.
+### Build from source
 
-* `/path1/to1/opencv-X.Y.Z/`: OpenCV (version: X.Y.Z) source directory
-* `/path2/to2/build-opencv/`: OpenCV build directory
-* `/path3/to3/opencv/`: Install directory
+#### Prerequisites
 
-It means that you built OpenCV with the following commands.
+Below components are required to build ropencv2:
 
-```
-$ cmake -S /path1/to1/opencv-X.Y.Z \
-  -B /path2/to2/build-opencv \
-  -DCMAKE_INSTALL_PREFIX=/path3/to3/opencv \
-  -Dbuild_opencv_python3=YES \
-  # and other options
-$ cd /path2/to2/build-opencv
-$ make
-$ make install # or with sudo
-```
+* Ruby (>3.0.0)
+  * recommend to use rbenv
+* Python (>3.x)
+* OpenCV
+  * `libopencv-dev` (apt package on Ubuntu-20.04)
+  * `opencv` (brew package on macOS)
 
-### Build ropencv2
+#### Build
 
-Run `gen2rb.py` => `generated` directory is generated and some files are put into it.
+Ubuntu
 
 ```
-export PYTHONPATH="/path1/to1/modules/python/src2"
-$ ./gen2rb.py /path2/to2/build-opencv/modules/python_bindings_generator/headers.txt
-```
-
-Run `extconf.rb` => `Makefile` is genereated.
-
-```
-$ export PKG_CONFIG_PATH=/path3/to3/opencv/lib/pkgconfig
-$ ruby extconf.rb --with-opt-include=/path3/to3/opencv/include \
-  --with-opt-lib=/path3/to3/opencv/lib
-```
-
-Build ropencv2 => `cv2.so` is genereated.
-
-```
+$ ruby extconf.rb  # Makefile and headers.txt are generated
+$ ./gen2rb.py headers.txt
 $ make
 ```
 
-### Run sample code
+macOS
 
 ```
-$ cd samples
-$ ./tiny.rb
+$ ruby extconf.rb  # Makefile and headers.txt are generated
+$ ./gen2rb.py headers.txt
+$ make CXXFLAGS="-std=c++14"
+```
+
+#### Run test
+
+```
+$ test/bind-test1.rb
 ```
 
 ## License
 
 Apache License 2.0. See License.txt.
 
-`gen2rb.py` is created by modifying `gen2.py` in OpenCV, which is under Apache Licsense Version 2.0. Refer [the original file](https://github.com/opencv/opencv/blob/4.5.2/modules/python/src2/gen2.py).
+`gen2rb.py` and `hdr_parser.py` are created by using files in OpenCV, which is under Apache Licsense Version 2.0. Refer [the original file](https://github.com/opencv/opencv/blob/4.5.2/modules/python/src2/gen2.py).
