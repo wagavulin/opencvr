@@ -1325,7 +1325,8 @@ headers = []
 with open(sys.argv[1]) as f:
     for line in f:
         line = line.rstrip()
-        headers.append(line)
+        if not line.startswith('#'):
+            headers.append(line)
 headers.append("./test_funcs.hpp")
 srcfiles = headers
 dstdir = "./generated"
