@@ -1,6 +1,7 @@
 Makefile
 *.so
 *.o
+__pycache__/
 /generated/
 /.vscode/
 settings.sh
