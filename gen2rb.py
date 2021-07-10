@@ -1336,11 +1336,15 @@ generator = PythonWrapperGenerator()
 generator.gen(srcfiles, dstdir)
 
 with open("generated/support-status.csv", "w") as fo:
-    fo.write("cname,supported,reason\n")
+    fo.write("supported,cname,arg_types,reason\n")
     for f in log_processed_funcs:
         for var_idx, v in enumerate(f.variants):
+            arg_types = []
+            for a in v.args:
+                arg_types.append(a.tp)
+            args_str = ','.join(arg_types)
             is_supported, reason = f.support_statuses[var_idx]
-            fo.write(f"{f.cname},{is_supported},{reason}\n")
+            fo.write(f'{is_supported},{f.cname},"{args_str}",{reason}\n')
 
 with open("generated/args.csv", "w") as fo:
     fo.write("ns,classname,name,cname,ctor,static,phantom,rettype")
