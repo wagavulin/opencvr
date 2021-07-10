@@ -1,6 +1,6 @@
-# ROpenCV2: Support Status
+# opencvr: Support Status
 
-Complete list of supported functions is on [Github Wiki page](https://github.com/wagavulin/ropencv2/wiki/Supported-functions).
+Complete list of supported functions is on [Github Wiki page](https://github.com/wagavulin/opencvr/wiki/Supported-functions).
 
 ## Functions
 
