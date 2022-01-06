@@ -215,7 +215,24 @@ bool rbopencv_to(VALUE o, Mat& m){
 
     bool needcopy = false, needcast = false;
     narray_data_t* nad = na_get_narray_data_t(o);
-    int type = CV_8U;
+    VALUE rclass = rb_obj_class(o), new_rclass = rclass;
+    int type = rclass == numo_cUInt8 ? CV_8U :
+        rclass == numo_cInt8 ? CV_8S :
+        rclass == numo_cUInt16 ? CV_16U :
+        rclass == numo_cInt16 ? CV_16S :
+        rclass == numo_cInt32 ? CV_32S :
+        rclass == numo_cSFloat ? CV_32F :
+        rclass == numo_cDFloat ? CV_64F : -1;
+    if (type < 0) {
+        if (rclass == numo_cInt64 || rclass == numo_cUInt64) {
+            needcopy = needcast = true;
+            new_rclass = numo_cInt32;
+            type = CV_32S;
+        } else {
+            fprintf(stderr, "type: %s is not supported\n", db_get_class_name(o));
+            return false;
+        }
+    }
 
     int ndims = (int)nad->base.ndim;
     if (ndims >= CV_MAX_DIM) {
