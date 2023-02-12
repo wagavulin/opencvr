@@ -1,3 +1,4 @@
+require 'find'
 require 'mkmf'
 require 'numo/narray'
 
@@ -14,16 +15,15 @@ def find_opencv_include_dir(opencv4_cppflags)
 end
 
 def gen_headers_txt(opencv_include_dir)
-  header_relpaths = []
-  File.open(__dir__ + "/headers-tmpl.txt"){|fin|
-    while line = fin.gets
-      line.chomp!
-      next if line.start_with?('#')
-      header_relpaths << line
-    end
-  }
-  header_paths = header_relpaths.map{|relpath|
-    opencv_include_dir + "/" + relpath
+  header_paths = []
+  Find.find(opencv_include_dir){|path|
+    next unless FileTest.file? path
+    next unless path.end_with?(".hpp")
+    next if path =~ /\/cuda\//
+    next if path =~ /\/opencl\//
+    next if path =~ /\/hal\// # Skip due to duplated definition error
+    next if path =~ /tracking_legacy.hpp$/
+    header_paths << path
   }
   File.open(__dir__ + "/headers.txt", "w"){|fout|
     header_paths.each{|path|
