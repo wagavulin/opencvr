@@ -39,34 +39,16 @@ Here is an example of supported functions.
 * `cv::arrowedLine()`
 * `cv::circle()`
 
-Binding of `cv::Mat` is manually crated for now (may be changed in the future), and it supports:
+## cv::Mat and Numo::NArray
 
-* `cv::Mat::cols`
-* `cv::Mat::rows`
-* `cv::Mat::channles()`
+cv::Mat is the matrix class used in OpenCV, but in python binding `ndarray` of Numpy is used, which is widely used in python world. It enables easily combining other libraries, such as data science and machine learning libraries.
+
+In opencvr, `Numo::NArray` is used as matrix library because it's widely used in ruby world.
 
 ## Future plan
 
 * Support more classes, functions, etc.
 * Create gem
-* Use numo-narray (Does anyone need?)
-  * See the below section for the detail
-
-## Matrix library
-
-OpenCV uses `cv::Mat` class as matrix class and image data is represented as an instance of it. However OpenCV python binding provides image data as `ndarray` of numpy library because numpy is widely used in python world. Thus python developers can manipulate image data not only with OpenCV APIs but also with numpy APIs and other python libraries which are based on numpy.
-
-To provide matrix data as numpy, python binding has special process when `cv::Mat` instance is created. For example, when `cv::imread()` is called, python binding does the below things:
-
-* Create a new `cv::Mat` instance with custom generated called `NumPyAllocator`.
-  * `NumPyAllocator` allocates memory by using numpy C API (`PyArray_SimpleNew()`) and set the pointer to a member variable of `cv::Mat`.
-* Copy the return value of `cv::imread()` to the created `cv::Mat` instance.
-* Returns the pointer as the return value. So it can be used as `ndarray`.
-
-In ruby world, numo-narray is a famous matrix library, but opencvr does not replace `cv::Mat` with numo-narray. I haven't tried it because:
-
-* I'm not sure such requirement really exists
-* I'm not familiary with numo-narray C API and therefore not sure it's possible or not
 
 ## How to install
 
