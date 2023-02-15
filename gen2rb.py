@@ -355,7 +355,7 @@ class ClassInfo(object):
         if self.constructor is not None:
             constructor_name = self.constructor.get_wrapper_name()
 
-        return "CVPY_TYPE({}, {}, {}, {}, {}, {});\n".format(
+        return "CVRB_TYPE({}, {}, {}, {}, {}, {});\n".format(
             self.wname,
             self.name,
             self.cname if self.issimple else "Ptr<{}>".format(self.cname),
@@ -1250,8 +1250,8 @@ class PythonWrapperGenerator(object):
         #     process_isalgorithm(classinfo)
 
         # # step 2: generate code for the classes and their methods
-        # classlist = list(self.classes.items())
-        # classlist.sort()
+        classlist = list(self.classes.items())
+        classlist.sort()
         # for name, classinfo in classlist:
         #     self.code_types.write("//{}\n".format(80*"="))
         #     self.code_types.write("// {} ({})\n".format(name, 'Map' if classinfo.ismap else 'Generic'))
@@ -1272,13 +1272,13 @@ class PythonWrapperGenerator(object):
 
         # # register classes in the same order as they have been declared.
         # # this way, base classes will be registered in Python before their derivatives.
-        # classlist1 = [(classinfo.decl_idx, name, classinfo) for name, classinfo in classlist]
-        # classlist1.sort()
+        classlist1 = [(classinfo.decl_idx, name, classinfo) for name, classinfo in classlist]
+        classlist1.sort()
 
-        # for decl_idx, name, classinfo in classlist1:
-        #     if classinfo.ismap:
-        #         continue
-        #     self.code_type_publish.write(classinfo.gen_def(self))
+        for decl_idx, name, classinfo in classlist1:
+            if classinfo.ismap:
+                continue
+            self.code_type_publish.write(classinfo.gen_def(self))
         # [orig-content-end]
 
         # step 3: generate the code for all the global functions
@@ -1309,7 +1309,7 @@ class PythonWrapperGenerator(object):
         self.save(output_path, "rbopencv_generated_include.h", self.code_include)
         self.save(output_path, "rbopencv_generated_funcs.h", self.code_funcs)
         self.save(output_path, "rbopencv_generated_enums.h", self.code_enums)
-        # self.save(output_path, "pyopencv_generated_types.h", self.code_type_publish)
+        self.save(output_path, "rbopencv_generated_types.h", self.code_type_publish)
         # self.save(output_path, "pyopencv_generated_types_content.h", self.code_types)
         self.save(output_path, "rbopencv_generated_modules.h", self.code_ns_init)
         self.save(output_path, "rbopencv_generated_modules_content.h", self.code_ns_reg)

@@ -966,6 +966,23 @@ struct MethodDef
     func_ptr_for_ruby_method wrapper_func;
 };
 
+// CV_PY_TO_ENUM and CV_PY_FROM_ENUM are originally defined in pycompat.hpp
+#define CV_RB_TO_ENUM(TYPE) \
+template<> \
+bool rbopencv_to(VALUE dst, TYPE& src){ \
+    TRACE_PRINTF("[rbopencv_to TYPE(%s)] not implemented\n", #TYPE); \
+    return false; \
+} \
+
+#define CV_RB_FROM_ENUM(TYPE) \
+template<> \
+VALUE rbopencv_from(const TYPE& src){ \
+    TRACE_PRINTF("[rbopencv_from TYPE(%s)]\n", #TYPE); \
+    return rbopencv_from(static_cast<int>(src)); \
+}
+
+#include "generated/rbopencv_generated_enums.h"
+
 #include "generated/rbopencv_generated_funcs.h"
 #include "generated/rbopencv_generated_modules_content.h"
 
