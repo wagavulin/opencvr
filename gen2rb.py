@@ -1317,12 +1317,11 @@ class PythonWrapperGenerator(object):
 
 
 
+headers_txt = "./headers.txt"
 if not len(sys.argv) == 2:
-    sys.stderr.write("usage: gen2rb.py <headers.txt>\n")
-    exit(1)
-
+    headers_txt = sys.argv[1]
 headers = []
-with open(sys.argv[1]) as f:
+with open(headers_txt) as f:
     for line in f:
         line = line.rstrip()
         if not line.startswith('#'):
