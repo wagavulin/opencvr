@@ -3,6 +3,7 @@
 #include <opencv2/core/types_c.h>
 #include "opencv2/core/utils/tls.hpp"
 #include <numo/narray.h>
+#include <memory>
 #include <string>
 
 #include "generated/rbopencv_generated_include.h"
@@ -983,6 +984,46 @@ VALUE rbopencv_from(const TYPE& src){ \
 
 #include "generated/rbopencv_generated_enums.h"
 
+// CVPY_TYPE_DECLARE is originally defined in pycompat.hpp
+#define CVRB_TYPE_DECLARE(WNAME, NAME, STORAGE, SNAME) \
+static VALUE c##WNAME; \
+struct Wrap##WNAME { \
+    STORAGE v; \
+}; \
+static void wrap_##WNAME##_free(Wrap##WNAME* ptr){ \
+    TRACE_PRINTF("[%s]\n", __func__); \
+    ptr->v.reset(); \
+    ruby_xfree(ptr); \
+} \
+static const rb_data_type_t WNAME##_type { \
+    #WNAME, \
+    {NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_##WNAME##_free), NULL}, \
+    NULL, NULL, \
+    RUBY_TYPED_FREE_IMMEDIATELY, \
+}; \
+static STORAGE get_##WNAME(VALUE self){ \
+    TRACE_PRINTF("[%s]\n", __func__); \
+    Wrap##WNAME* ptr; \
+    TypedData_Get_Struct(self, struct Wrap##WNAME, &WNAME##_type, ptr); \
+    return ptr->v; \
+} \
+static VALUE wrap_##WNAME##_alloc(VALUE klass){ \
+    struct Wrap##WNAME* ptr = nullptr; \
+    VALUE ret = TypedData_Make_Struct(klass, struct Wrap##WNAME, &WNAME##_type, ptr); \
+    return ret; \
+} \
+
+// init macro (should be corresponding to constructor)
+// static VALUE wrap_##WNAME##__init(VALUE self){
+//     TRACE_PRINTF("[%s]\n", __func__);
+//     return Qnil;
+// }
+
+
+#define CVRB_TYPE(WNAME, NAME, STORAGE, SNAME, _1, _2) CVRB_TYPE_DECLARE(WNAME, NAME, STORAGE, SNAME)
+#include "generated/rbopencv_generated_types.h"
+#undef CVRB_TYPE
+
 #include "generated/rbopencv_generated_funcs.h"
 #include "generated/rbopencv_generated_modules_content.h"
 
@@ -1047,6 +1088,54 @@ static void init_submodule(VALUE module, const char* name, MethodDef method_defs
     }
 }
 
+#if 0
+static VALUE cCascadeClassifier;
+
+struct WrapCascadeClassifier {
+    cv::Ptr<cv::CascadeClassifier> v;
+};
+
+static void wrap_cascadeclassifier_free(WrapCascadeClassifier* ptr){
+    ptr->v.reset();
+    ruby_xfree(ptr);
+}
+
+static const rb_data_type_t cascadeclassifier_type {
+    "CascadeClassifier",
+    {NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_cascadeclassifier_free), NULL},
+    NULL, NULL,
+    RUBY_TYPED_FREE_IMMEDIATELY
+};
+
+static cv::Ptr<cv::CascadeClassifier> get_cascadeclassifier(VALUE self){
+    WrapCascadeClassifier* ptr;
+    TypedData_Get_Struct(self, struct WrapCascadeClassifier, &cascadeclassifier_type, ptr);
+    return ptr->v;
+}
+
+static VALUE wrap_cascadeclassifier_alloc(VALUE klass){
+    struct WrapCascadeClassifier* ptr = nullptr;
+    VALUE ret = TypedData_Make_Struct(klass, struct WrapCascadeClassifier, &cascadeclassifier_type, ptr);
+    ptr->v = std::make_shared<cv::CascadeClassifier>();
+    return ret;
+}
+
+static VALUE wrap_cascadeclassifier_init(VALUE self){
+    return Qnil;
+}
+
+static VALUE wrap_cascadeclassifier_load(VALUE self, VALUE filename){
+    const char* raw_filename = RSTRING_PTR(filename);
+    bool raw_retval = get_cascadeclassifier(self)->load(raw_filename);
+    VALUE value_retval = rbopencv_from(raw_retval);
+    return value_retval;
+}
+#endif // 0
+
+// CVPY_TYPE_INIT_STATIC is originally defined in pycompat.hpp
+#define CVRB_TYPE_INIT_STATIC(WNAME, NAME, ERROR_HANDLER, BASE, CONSTRUCTOR) \
+    c##WNAME = rb_define_class_under(mCV2, #WNAME, rb_cObject)
+
 extern "C" {
 void Init_cv2(){
 
@@ -1055,6 +1144,17 @@ void Init_cv2(){
 #define CVRB_MODULE(NAMESTR, NAME) \
     init_submodule(mCV2, "CV2" NAMESTR, methods_##NAME, consts_##NAME)
     #include "generated/rbopencv_generated_modules.h"
-#undef CVPY_MODULE
+#undef CVRB_MODULE
+
+#define CVRB_TYPE(WNAME, NAME, _1, _2, BASE, CONSTRUCTOR) CVRB_TYPE_INIT_STATIC(WNAME, NAME, return false, BASE, CONSTRUCTOR)
+#include "generated/rbopencv_generated_types.h"
+#undef CVRB_TYPE
+
+#if 0
+    cCascadeClassifier = rb_define_class_under(mCV2, "CascadeClassifier", rb_cObject);
+    rb_define_alloc_func(cCascadeClassifier, wrap_cascadeclassifier_alloc);
+    rb_define_private_method(cCascadeClassifier, "initialize", RUBY_METHOD_FUNC(wrap_cascadeclassifier_init), 0);
+    rb_define_method(cCascadeClassifier, "load", RUBY_METHOD_FUNC(wrap_cascadeclassifier_load), 1);
+#endif // 0
 }
 }

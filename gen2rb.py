@@ -1278,6 +1278,9 @@ class PythonWrapperGenerator(object):
         for decl_idx, name, classinfo in classlist1:
             if classinfo.ismap:
                 continue
+            if classinfo.issimple:
+                print(f"Note: Class {name} is defined as Simple, but ruby-bind does not supported -> Skip")
+                continue
             self.code_type_publish.write(classinfo.gen_def(self))
         # [orig-content-end]
 
