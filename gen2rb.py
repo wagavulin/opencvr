@@ -154,9 +154,6 @@ class FuncInfo:
         for v in self.variants:
             num_mandatory_args = 0
             num_optional_args = 0
-            if self.classname:
-                support_statuses.append((False, "member function is not supported"))
-                continue
             strs = self.cname.split("::")
             if not v.rettype in supported_rettypes:
                 support_statuses.append((False, f"retval type is not supported: {self.variants[0].rettype}"))
@@ -344,11 +341,17 @@ class FuncInfo:
 
             # Call C++ API if arguments are ready
             f.write("        if (conv_args_ok) {\n")
-            if v.rettype == "":
-                f.write(f"            {self.cname}({', '.join(cac_args)});\n")
-            else:
+            if not v.rettype == "":
                 f.write(f"            {v.rettype} raw_retval;\n")
-                f.write(f"            raw_retval = {self.cname}({', '.join(cac_args)});\n")
+                f.write(f"            raw_retval = ")
+            else:
+                f.write(f"            ")
+            if self.classname: # call instance method
+                f.write(f"get_{self.classname}(klass)->{self.name}")
+            else:              # call global function
+                f.write(f"{self.cname}")
+            f.write(f"({', '.join(cac_args)});\n")
+
 
             # Convert the return value(s)
             num_ruby_retvals = len(rh_raw_var_names)
@@ -482,7 +485,7 @@ def gen(headers:list[str], out_dir:str):
     with open("./autogen/rbopencv_wrapclass.hpp", "w") as f:
         for decl_idx, name, classinfo in classlist1:
             cClass = f"c{name}" # cFoo
-            wrap_struct = f" struct Wrap_{name}" # struct WrapFoo
+            wrap_struct = f"struct Wrap_{name}" # struct WrapFoo
             classtype = f"{name}_type"
             f.write(f"static VALUE {cClass};\n")
             f.write(f"{wrap_struct} {{\n")
@@ -525,6 +528,7 @@ def gen(headers:list[str], out_dir:str):
             f.write(f"}}\n")
     # gen funcs
     with open("./autogen/rbopencv_funcs.hpp", "w") as f:
+        funcs:list[FuncInfo] = []
         for ns_name, ns in sorted(namespaces.items()):
             #print(f"ns_name: {ns_name}")
             #ns.dump(1)
@@ -533,7 +537,14 @@ def gen(headers:list[str], out_dir:str):
             for name, func in sorted(ns.funcs.items()):
                 if func.isconstructor:
                     continue
-                func.gen_code(f, classes)
+                funcs.append(func)
+        for decl_idx, name, classinfo in classlist1:
+            for name, func in sorted(classinfo.methods.items()):
+                if func.isconstructor:
+                    continue
+                funcs.append(func)
+        for func in funcs:
+            func.gen_code(f, classes)
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:
