@@ -45,8 +45,10 @@ public:
     CV_WRAP Foo() { PRINT_CXXFUNC(); }
     CV_WRAP Foo(int value1) : m_value1(value1) { PRINT_CXXFUNC(); }
     ~Foo() { PRINT_CXXFUNC(); }
-    CV_WRAP void method1(int a) {
-        printf("[%s] %d\n", __func__, m_value1 + a);
+    CV_WRAP int method1(int a) {
+        int ret = m_value1 + a;
+        printf("[CXX %s] %d\n", __func__, ret);
+        return ret;
     }
     CV_WRAP int method2(int a) { return a * 2; }
     CV_WRAP int method2(int a, int b) { return a * b; }
