@@ -547,3 +547,11 @@ with open(headers_txt) as f:
 dstdir = "./autogen"
 os.makedirs(dstdir, exist_ok=True)
 gen(headers, dstdir)
+
+with open("./autogen/support-status.csv", "w") as f:
+    for func in g_log_processed_funcs:
+        for vi, v in enumerate(func.variants):
+            arg_types = [a.tp for a in v.args]
+            args_str = ",".join(arg_types)
+            is_supported, reason = func.support_statuses[vi]
+            print(f'{is_supported},{func.cname},"{args_str}",{reason}', file=f)
