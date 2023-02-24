@@ -35,6 +35,10 @@
 // End copied
 
 namespace cv {
+
+// global functions
+CV_EXPORTS_W int bindTest1(int a);
+
 class CV_EXPORTS_W Foo {
 public:
     //CV_WRAP static int smethod1(int a) { return a + 10; }
