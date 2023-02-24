@@ -19,7 +19,7 @@ def split_decl_name(name, namespaces):
         classes.insert(0, namespace.pop())
     return namespace, classes, chunks[-1]
 
-def handle_ptr(tp):
+def handle_ptr(tp:str) -> str:
     if tp.startswith('Ptr_'):
         tp = 'Ptr<' + "::".join(tp.split('_')[1:]) + '>'
     return tp
@@ -99,7 +99,7 @@ class Namespace:
 
 def gen(headers:list[str], out_dir:str):
     classes: dict[str, ClassInfo] = {}
-    namespaces = {}
+    namespaces: dict[str, Namespace] = {}
     parser = hdr_parser.CppHeaderParser(generate_umat_decls=False, generate_gpumat_decls=False)
     for hdr in headers:
         decls = parser.parse(hdr)
