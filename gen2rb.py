@@ -13,14 +13,6 @@ g_log_processed_funcs:list["FuncInfo"] = []
 def normalize_class_name(name):
     return re.sub(r"^cv\.", "", name).replace(".", "_")
 
-def split_decl_name(name, namespaces):
-    chunks = name.split('.')
-    namespace = chunks[:-1]
-    classes = []
-    while namespace and '.'.join(namespace) not in namespaces:
-        classes.insert(0, namespace.pop())
-    return namespace, classes, chunks[-1]
-
 def handle_ptr(tp:str) -> str:
     if tp.startswith('Ptr_'):
         tp = 'Ptr<' + "::".join(tp.split('_')[1:]) + '>'
@@ -411,12 +403,62 @@ class Namespace:
             print(f"{indent}funcs[{i}] {name}")
 
 class RubyWrapperGenerator:
+    def __init__(self):
+        self.parser = hdr_parser.CppHeaderParser(generate_umat_decls=False, generate_gpumat_decls=False)
+        self.classes: dict[str, ClassInfo] = {}
+        self.namespaces: dict[str, Namespace] = {}
+
+    def add_class(self, stype, name, decl):
+        classinfo = ClassInfo(name, decl)
+        if classinfo.name in self.classes:
+            print(f"Generator error: class {classinfo.name} (cname={classinfo.cname}) already exists")
+            exit(1)
+        self.classes[classinfo.name] = classinfo
+
+    def split_decl_name(self, name):
+        chunks = name.split('.')
+        namespace = chunks[:-1]
+        classes = []
+        while namespace and '.'.join(namespace) not in self.parser.namespaces:
+            classes.insert(0, namespace.pop())
+        return namespace, classes, chunks[-1]
+
+    def add_func(self, decl):
+        namespace, classes_list, barename = self.split_decl_name(decl[0])
+        #print(f"namespace: {namespace}, classes_list: {classes_list}, barename: {barename}")
+        cname = "::".join(namespace+classes_list+[barename])
+        name = barename
+        classname = ''
+        bareclassname = ''
+        if classes_list:
+            classname = normalize_class_name('.'.join(namespace+classes_list))
+            bareclassname = classes_list[-1]
+        namespace_str = '.'.join(namespace)
+        isconstructor = name == bareclassname
+        is_static = False
+        isphantom = False
+        for i, m in enumerate(decl[2]):
+            print(f"{i} {m}")
+            if m == "/S":
+                is_static = True
+        if isconstructor:
+            name = "_".join(classes_list[:-1]+[name])
+        #print(f"  name: {name}, cname: {cname}, bareclassname: {bareclassname}, namespace_str: {namespace_str}, isconstructor: {isconstructor}")
+        if is_static:
+            pass
+        else:
+            if classname and not isconstructor:
+                func_map = self.classes[classname].methods
+            else:
+                func_map = self.namespaces.setdefault(namespace_str, Namespace()).funcs
+            func = func_map.setdefault(name, FuncInfo(classname, name, cname, isconstructor, namespace_str, is_static))
+            func.add_variant(decl, isphantom)
+        if classname and isconstructor:
+            self.classes[classname].constructor = func
+
     def gen(self, headers:list[str], out_dir:str):
-        classes: dict[str, ClassInfo] = {}
-        namespaces: dict[str, Namespace] = {}
-        parser = hdr_parser.CppHeaderParser(generate_umat_decls=False, generate_gpumat_decls=False)
         for hdr in headers:
-            decls = parser.parse(hdr)
+            decls = self.parser.parse(hdr)
             hdr_fname = os.path.split(hdr)[1]
             hdr_stem = os.path.splitext(hdr_fname)[0]
             out_json_path = f"./autogen/tmp-{hdr_stem}.json"
@@ -439,49 +481,15 @@ class RubyWrapperGenerator:
                     cols = name.split(" ", 1)
                     stype = cols[0] # "struct" or "class"
                     name = cols[1]
-                    classinfo = ClassInfo(name, decl)
-                    if classinfo.name in classes:
-                        print(f"Generator error: class {classinfo.name} (cname={classinfo.cname}) already exists")
-                        exit(1)
-                    classes[classinfo.name] = classinfo
+                    self.add_class(stype, name, decl)
                 elif name.startswith("enum "):
                     pass
                 else:
-                    namespace, classes_list, barename = split_decl_name(decl[0], parser.namespaces)
-                    #print(f"namespace: {namespace}, classes_list: {classes_list}, barename: {barename}")
-                    cname = "::".join(namespace+classes_list+[barename])
-                    name = barename
-                    classname = ''
-                    bareclassname = ''
-                    if classes_list:
-                        classname = normalize_class_name('.'.join(namespace+classes_list))
-                        bareclassname = classes_list[-1]
-                    namespace_str = '.'.join(namespace)
-                    isconstructor = name == bareclassname
-                    is_static = False
-                    isphantom = False
-                    for i, m in enumerate(decl[2]):
-                        print(f"{i} {m}")
-                        if m == "/S":
-                            is_static = True
-                    if isconstructor:
-                        name = "_".join(classes_list[:-1]+[name])
-                    #print(f"  name: {name}, cname: {cname}, bareclassname: {bareclassname}, namespace_str: {namespace_str}, isconstructor: {isconstructor}")
-                    if is_static:
-                        pass
-                    else:
-                        if classname and not isconstructor:
-                            func_map = classes[classname].methods
-                        else:
-                            func_map = namespaces.setdefault(namespace_str, Namespace()).funcs
-                        func = func_map.setdefault(name, FuncInfo(classname, name, cname, isconstructor, namespace_str, is_static))
-                        func.add_variant(decl, isphantom)
-                    if classname and isconstructor:
-                        classes[classname].constructor = func
+                    self.add_func(decl)
         #for i, class_name in enumerate(classes):
         #    print(f"classes[{i}] {class_name}")
         #    classes[class_name].dump(1)
-        classlist = list(classes.items())
+        classlist = list(self.classes.items())
         classlist.sort()
         classlist1 = [(classinfo.decl_idx, name, classinfo) for name, classinfo in classlist]
         classlist1.sort()
@@ -537,7 +545,7 @@ class RubyWrapperGenerator:
         # gen funcs
         with open("./autogen/rbopencv_funcs.hpp", "w") as f:
             funcs:list[FuncInfo] = []
-            for ns_name, ns in sorted(namespaces.items()):
+            for ns_name, ns in sorted(self.namespaces.items()):
                 #print(f"ns_name: {ns_name}")
                 #ns.dump(1)
                 if ns_name.split(".")[0] != "cv":
@@ -552,7 +560,7 @@ class RubyWrapperGenerator:
                         continue
                     funcs.append(func)
             for func in funcs:
-                func.gen_code(f, classes)
+                func.gen_code(f, self.classes)
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:
