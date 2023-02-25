@@ -81,6 +81,15 @@ static void init_submodule_cv(VALUE module, MethodDef method_defs[], ConstDef co
         rb_define_module_function(module, method_def->name, method_def->wrapper_func, -1);
         method_def++;
     }
+    ConstDef *const_def = const_defs;
+    VALUE parent_mod = mCV2;
+    while (const_def->name) {
+        // Need to check whether the 1st character is upper case.
+        // cv::datasets defines both uppercase and lowercase constants (e.g. "CIRCLE" and "circle")
+        if (const_def->name[0] != '_' && isupper(const_def->name[0]))
+            rb_define_const(parent_mod, const_def->name, INT2FIX(const_def->val));
+        const_def++;
+    }
 }
 
 extern "C" {
