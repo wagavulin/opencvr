@@ -149,6 +149,9 @@ class FuncInfo:
             num_mandatory_args = 0
             num_optional_args = 0
             strs = self.cname.split("::")
+            if self.is_static:
+                support_statuses.append((False, f"static method is not supported: {self.cname}"))
+                continue
             if not v.rettype in supported_rettypes:
                 support_statuses.append((False, f"retval type is not supported: {self.variants[0].rettype}"))
                 continue
@@ -376,12 +379,13 @@ class FuncInfo:
 
 g_class_idx = 0
 class ClassInfo:
-    def __init__(self, name, decl=None):
+    def __init__(self, name:str, decl=None):
         global g_class_idx
         self.decl_idx = g_class_idx
         g_class_idx += 1
         self.cname = name.replace(".", "::")   # name: "cv.Ns1.Bar", cname: "cv::Ns1::Bar"
-        self.name = normalize_class_name(name) # "Ns1_Bar"
+        self.wname = normalize_class_name(name) # "Ns1_Bar"
+        self.name = self.wname
         self.methods: dict[str, FuncInfo] = {}
         self.constructor: FuncInfo = None
 
@@ -455,28 +459,50 @@ class RubyWrapperGenerator:
 
     def add_func(self, decl:list):
         # decl[0]: "cv.Ns1.Bar.method1"
-        namespace, classes_list, barename = self.split_decl_name(decl[0])
+        namespace, classes, barename = self.split_decl_name(decl[0])
         # namespace: ["cv", "Ns1"], classes_list: ["Bar"], barename: "method1"
-        cname = "::".join(namespace+classes_list+[barename]) # "cv::Ns1::Bar::method1"
+        cname = "::".join(namespace+classes+[barename]) # "cv::Ns1::Bar::method1"
         name = barename # "method1"
         classname = ''
         bareclassname = ''
-        if classes_list:
-            classname = normalize_class_name('.'.join(namespace+classes_list)) # "Ns1_Bar"
-            bareclassname = classes_list[-1]                                   # "Bar"
+        if classes:
+            classname = normalize_class_name('.'.join(namespace+classes)) # "Ns1_Bar"
+            bareclassname = classes[-1]                                   # "Bar"
         namespace_str = '.'.join(namespace) # "cv.Ns1"
         isconstructor = name == bareclassname
         is_static = False
         isphantom = False
-        for i, m in enumerate(decl[2]):
-            print(f"{i} {m}")
+        for m in decl[2]:
             if m == "/S":
                 is_static = True
+
         if isconstructor:
-            name = "_".join(classes_list[:-1]+[name])
-        #print(f"  name: {name}, cname: {cname}, bareclassname: {bareclassname}, namespace_str: {namespace_str}, isconstructor: {isconstructor}")
+            name = "_".join(classes[:-1]+[name])
+
         if is_static:
-            pass
+            # Add it as a method to the class
+            func_map = self.classes[classname].methods
+            func = func_map.setdefault(name, FuncInfo(classname, name, cname, isconstructor, namespace_str, is_static))
+            func.add_variant(decl, isphantom)
+
+            # Add it as global function
+            g_name = "_".join(classes+[name]) # name: "smethod1", gname: "Foo_smethod1"
+            w_classes = []
+            for i in range(0, len(classes)):
+                classes_i = classes[:i+1]
+                classname_i = normalize_class_name('.'.join(namespace+classes_i))
+                w_classname = self.classes[classname_i].wname
+                namespace_prefix = normalize_class_name('.'.join(namespace)) + '_'
+                if w_classname.startswith(namespace_prefix):
+                    w_classname = w_classname[len(namespace_prefix):]
+                w_classes.append(w_classname)
+            g_wname = "_".join(w_classes+[name]) # "Foo_smethod1"
+            func_map = self.namespaces.setdefault(namespace_str, Namespace()).funcs
+            func = func_map.setdefault(g_name, FuncInfo("", g_name, cname, isconstructor, namespace_str, False))
+            func.add_variant(decl, isphantom)
+            if g_wname != g_name:  # TODO OpenCV 5.0
+                wfunc = func_map.setdefault(g_wname, FuncInfo("", g_wname, cname, isconstructor, namespace_str, False))
+                wfunc.add_variant(decl, isphantom)
         else:
             if classname and not isconstructor:
                 func_map = self.classes[classname].methods
