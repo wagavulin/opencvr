@@ -416,7 +416,7 @@ def gen(headers:list[str], out_dir:str):
         decls = parser.parse(hdr)
         hdr_fname = os.path.split(hdr)[1]
         hdr_stem = os.path.splitext(hdr_fname)[0]
-        out_json_path = f"tmp-{hdr_stem}.json"
+        out_json_path = f"./autogen/tmp-{hdr_stem}.json"
         with open(out_json_path, "w") as f:
             json.dump(decls, f, indent=2)
         with open("./autogen/rbopencv_include.hpp", "w") as f:
