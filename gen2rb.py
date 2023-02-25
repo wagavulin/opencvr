@@ -610,6 +610,38 @@ class RubyWrapperGenerator:
                     funcs.append(func)
             for func in funcs:
                 func.gen_code(f, self.classes)
+        # gen MethodDef and ConstDef
+        with open(f"{out_dir}/rbopencv_modules_content.hpp", "w") as f:
+            for ns_name, ns in sorted(self.namespaces.items()):
+                ns = self.namespaces[ns_name]
+                wname = normalize_class_name(ns_name)
+
+                f.write('static MethodDef methods_%s[] = {\n'%wname)
+                for name, func in sorted(ns.funcs.items()):
+                    num_supported_variants, support_statuses = func.is_target_function()
+                    if num_supported_variants == 0:
+                        continue
+                    wrapper_name = func.get_wrapper_name()
+                    if func.isconstructor:
+                        continue
+                    if func.is_static:
+                        continue
+                    #self.code_ns_reg.write(func.get_tab_entry()) # [orig-content]
+                    f.write(f'    {{"{name}", {wrapper_name}}},\n')
+                custom_entries_macro = 'RBOPENCV_EXTRA_METHODS_{}'.format(wname.upper())
+                f.write('#ifdef {}\n    {}\n#endif\n'.format(custom_entries_macro, custom_entries_macro))
+                f.write('    {NULL, NULL}\n};\n\n')
+
+                f.write('static ConstDef consts_%s[] = {\n'%wname)
+                for name, cname in sorted(ns.consts.items()):
+                    f.write('    {"%s", static_cast<long>(%s)},\n'%(name, cname))
+                    compat_name = re.sub(r"([a-z])([A-Z])", r"\1_\2", name).upper()
+                    if name != compat_name:
+                        f.write('    {"%s", static_cast<long>(%s)},\n'%(compat_name, cname))
+                custom_entries_macro = 'RBOPENCV_EXTRA_CONSTANTS_{}'.format(wname.upper())
+                f.write('#ifdef {}\n    {}\n#endif\n'.format(custom_entries_macro, custom_entries_macro))
+                f.write('    {NULL, 0}\n};\n\n')
+
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:

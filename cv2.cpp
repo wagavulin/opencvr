@@ -62,18 +62,20 @@ struct MethodDef {
     func_ptr_for_ruby_method wrapper_func;
 };
 
+struct ConstDef {
+    const char *name;
+    long long val;
+};
+
 #include "autogen/rbopencv_include.hpp"
 using namespace cv;
 static VALUE mCV2;
 #include "autogen/rbopencv_wrapclass.hpp"
 
 #include "autogen/rbopencv_funcs.hpp"
-static MethodDef methods_cv[] = {
-    {"bindTest1", rbopencv_cv_bindTest1},
-    {NULL, NULL},
-};
+#include "autogen/rbopencv_modules_content.hpp"
 
-static void init_submodule_cv(VALUE module, MethodDef method_defs[]/*,ConstDef const_defs[]*/){
+static void init_submodule_cv(VALUE module, MethodDef method_defs[], ConstDef const_defs[]){
     MethodDef *method_def = method_defs;
     while (method_def->name) {
         rb_define_module_function(module, method_def->name, method_def->wrapper_func, -1);
@@ -86,7 +88,7 @@ void Init_cv2(){
     PRINT_FUNC();
     mCV2 = rb_define_module("CV2");
 
-    init_submodule_cv(mCV2, methods_cv);
+    init_submodule_cv(mCV2, methods_cv, consts_cv);
     #include "autogen/rbopencv_classregistration.hpp"
 }
 }
