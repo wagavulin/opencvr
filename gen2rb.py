@@ -486,23 +486,7 @@ class RubyWrapperGenerator:
             func.add_variant(decl, isphantom)
 
             # Add it as global function
-            g_name = "_".join(classes+[name]) # name: "smethod1", gname: "Foo_smethod1"
-            w_classes = []
-            for i in range(0, len(classes)):
-                classes_i = classes[:i+1]
-                classname_i = normalize_class_name('.'.join(namespace+classes_i))
-                w_classname = self.classes[classname_i].wname
-                namespace_prefix = normalize_class_name('.'.join(namespace)) + '_'
-                if w_classname.startswith(namespace_prefix):
-                    w_classname = w_classname[len(namespace_prefix):]
-                w_classes.append(w_classname)
-            g_wname = "_".join(w_classes+[name]) # "Foo_smethod1"
-            func_map = self.namespaces.setdefault(namespace_str, Namespace()).funcs
-            func = func_map.setdefault(g_name, FuncInfo("", g_name, cname, isconstructor, namespace_str, False))
-            func.add_variant(decl, isphantom)
-            if g_wname != g_name:  # TODO OpenCV 5.0
-                wfunc = func_map.setdefault(g_wname, FuncInfo("", g_wname, cname, isconstructor, namespace_str, False))
-                wfunc.add_variant(decl, isphantom)
+            # Need to copy from python-binding
         else:
             if classname and not isconstructor:
                 func_map = self.classes[classname].methods
@@ -600,6 +584,8 @@ class RubyWrapperGenerator:
                 f.write(f"    rb_define_alloc_func({cClass}, wrap_{name}_alloc);\n")
                 f.write(f"    rb_define_private_method({cClass}, \"initialize\", RUBY_METHOD_FUNC(wrap_{name}_init), 0);\n")
                 for name, func in classinfo.methods.items():
+                    if func.is_static:
+                        continue
                     wrapper_name = func.get_wrapper_name()
                     f.write(f"    rb_define_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
                 f.write(f"}}\n")
@@ -618,6 +604,8 @@ class RubyWrapperGenerator:
             for decl_idx, name, classinfo in classlist1:
                 for name, func in sorted(classinfo.methods.items()):
                     if func.isconstructor:
+                        continue
+                    if func.is_static:
                         continue
                     funcs.append(func)
             for func in funcs:
