@@ -395,7 +395,8 @@ class ClassInfo:
 
 class Namespace:
     def __init__(self):
-        self.funcs = {}
+        self.funcs: dict[str, FuncInfo] = {}
+        self.consts: dict[str, str] = {}     # "MyEnum2_MYENUM2_VALUE_A" => "cv::Ns1::MyEnum2::MYENUM2_VALUE_A"
 
     def dump(self, depth):
         indent = "  " * depth
@@ -407,6 +408,8 @@ class RubyWrapperGenerator:
         self.parser = hdr_parser.CppHeaderParser(generate_umat_decls=False, generate_gpumat_decls=False)
         self.classes: dict[str, ClassInfo] = {}
         self.namespaces: dict[str, Namespace] = {}
+        self.consts: dict[str, str] = {}
+        self.enums: dict[str, str] = {}
 
     def add_class(self, stype:str, name:str, decl:list):
         classinfo = ClassInfo(name, decl)
@@ -422,6 +425,33 @@ class RubyWrapperGenerator:
         while namespace and '.'.join(namespace) not in self.parser.namespaces:
             classes.insert(0, namespace.pop())
         return namespace, classes, chunks[-1]
+
+    def add_const(self, name:str, decl:list):
+        # name: "cv.Ns1.MyEnum2.MYENUM2_VALUE_A"
+        cname = name.replace('.','::') # "cv::Ns1::MyEnum2::MYENUM2_VALUE_A"
+        namespace, classes, name = self.split_decl_name(name)
+        # namespace: ["cv", "Ns1"], classes: ["MyEnum2"], name: "MYENUM2_VALUE_A"
+        namespace = '.'.join(namespace) # "cv.Ns1"
+        name = '_'.join(classes+[name]) # "MyEnum2_MYENUM2_VALUE_A"
+        ns = self.namespaces.setdefault(namespace, Namespace())
+        if name in ns.consts:
+            print("Generator error: constant %s (cname=%s) already exists" \
+                % (name, cname))
+            sys.exit(-1)
+        ns.consts[name] = cname
+
+    def add_enum(self, name:str, decl:list):
+        # name: "cv.Ns1.MyEnum2"
+        wname = normalize_class_name(name) # "Ns1_MyEnum2"
+        if wname.endswith("<unnamed>"):
+            wname = None
+        else:
+            self.enums[wname] = name
+        const_decls = decl[3] # [ ["const cv.Ns1.MyEnum2.MYENUM2_VALUE_A", "-1", [], [], None, ""], ...]
+
+        for decl in const_decls:
+            name = decl[0] # "const cv.Ns1.MyEnum2.MYENUM2_VALUE_A"
+            self.add_const(name.replace("const ", "").strip(), decl)
 
     def add_func(self, decl:list):
         # decl[0]: "cv.Ns1.Bar.method1"
@@ -477,15 +507,18 @@ class RubyWrapperGenerator:
                 #             print(f"{i} is_None")
                 #         else:
                 #             print(f"{i} {decl[i]}")
-                name = decl[0]
-                if name.startswith("struct") or name.startswith("class"):
+                name:str = decl[0]
+                if name.startswith("struct ") or name.startswith("class"):
                     # class/struct
                     p = name.find(" ")
                     stype = name[:p]          # "class" of "struct"
                     name = name[p+1:].strip() # "cv.Ns1.Bar"
                     self.add_class(stype, name, decl)
+                elif name.startswith("const "):
+                    self.add_const(name.replace("const ", "").strip(), decl)
                 elif name.startswith("enum "):
-                    pass
+                    # name: "enum class cv.Ns1.MyEnum2"
+                    self.add_enum(name.rsplit(" ", 1)[1], decl) # arg: "cv.Ns1.MyEnum2"
                 else:
                     self.add_func(decl)
         #for i, class_name in enumerate(classes):
