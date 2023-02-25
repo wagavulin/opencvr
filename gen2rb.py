@@ -461,10 +461,10 @@ class RubyWrapperGenerator:
             decls = self.parser.parse(hdr)
             hdr_fname = os.path.split(hdr)[1]
             hdr_stem = os.path.splitext(hdr_fname)[0]
-            out_json_path = f"./autogen/tmp-{hdr_stem}.json"
+            out_json_path = f"{out_dir}/tmp-{hdr_stem}.json"
             with open(out_json_path, "w") as f:
                 json.dump(decls, f, indent=2)
-            with open("./autogen/rbopencv_include.hpp", "w") as f:
+            with open(f"{out_dir}/rbopencv_include.hpp", "w") as f:
                 f.write(f'#include "{hdr}"\n')
             for decl in decls:
                 # for i in range(len(decl)):
@@ -495,7 +495,7 @@ class RubyWrapperGenerator:
         classlist1.sort()
 
         # gen wrapclass
-        with open("./autogen/rbopencv_wrapclass.hpp", "w") as f:
+        with open(f"{out_dir}/rbopencv_wrapclass.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
                 cClass = f"c{name}" # cFoo
                 wrap_struct = f"struct Wrap_{name}" # struct WrapFoo
@@ -529,7 +529,7 @@ class RubyWrapperGenerator:
                 f.write(f"    return Qnil;\n")
                 f.write(f"}}\n")
         # gen class registration
-        with open("./autogen/rbopencv_classregistration.hpp", "w") as f:
+        with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
                 cClass = f"c{name}" # cFoo
                 wrap_struct = f" struct Wrap_{name}" # struct WrapFoo
@@ -543,7 +543,7 @@ class RubyWrapperGenerator:
                     f.write(f"    rb_define_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
                 f.write(f"}}\n")
         # gen funcs
-        with open("./autogen/rbopencv_funcs.hpp", "w") as f:
+        with open(f"{out_dir}/rbopencv_funcs.hpp", "w") as f:
             funcs:list[FuncInfo] = []
             for ns_name, ns in sorted(self.namespaces.items()):
                 #print(f"ns_name: {ns_name}")
@@ -576,7 +576,7 @@ os.makedirs(dstdir, exist_ok=True)
 generator = RubyWrapperGenerator()
 generator.gen(headers, dstdir)
 
-with open("./autogen/support-status.csv", "w") as f:
+with open(f"{dstdir}/support-status.csv", "w") as f:
     for func in g_log_processed_funcs:
         for vi, v in enumerate(func.variants):
             arg_types = [a.tp for a in v.args]
