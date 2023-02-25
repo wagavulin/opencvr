@@ -525,6 +525,9 @@ def gen(headers:list[str], out_dir:str):
             f.write(f"    {cClass} = rb_define_class_under(mCV2, \"{name}\", rb_cObject);\n")
             f.write(f"    rb_define_alloc_func({cClass}, wrap_{name}_alloc);\n")
             f.write(f"    rb_define_private_method({cClass}, \"initialize\", RUBY_METHOD_FUNC(wrap_{name}_init), 0);\n")
+            for name, func in classinfo.methods.items():
+                wrapper_name = func.get_wrapper_name()
+                f.write(f"    rb_define_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
             f.write(f"}}\n")
     # gen funcs
     with open("./autogen/rbopencv_funcs.hpp", "w") as f:

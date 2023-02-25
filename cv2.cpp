@@ -88,8 +88,5 @@ void Init_cv2(){
 
     init_submodule_cv(mCV2, methods_cv);
     #include "autogen/rbopencv_classregistration.hpp"
-    {
-        rb_define_method(cFoo, "method1", RUBY_METHOD_FUNC(rbopencv_cv_Foo_method1), -1);
-    }
 }
 }
