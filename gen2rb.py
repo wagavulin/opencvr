@@ -40,12 +40,14 @@ class ArgInfo:
         self.isrvalueref:bool = False
         for m in arg_tuple[3]:                 # "/Ref", "/C", etc.
             if m == "/O":
-                raise ValueError("/O is not supported")
+                print("/O is not supported")
+                return
                 self.inputarg = False
                 self.outputarg = True
                 self.returnarg = True
             elif m == "/IO":
-                raise ValueError("/IO is not supported")
+                print("/IO is not supported")
+                return
                 self.inputarg = True
                 self.outputarg = True
                 self.returnarg = True
