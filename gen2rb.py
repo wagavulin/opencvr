@@ -380,8 +380,8 @@ class ClassInfo:
         global g_class_idx
         self.decl_idx = g_class_idx
         g_class_idx += 1
-        self.cname = name.replace(".", "::")
-        self.name = normalize_class_name(name)
+        self.cname = name.replace(".", "::")   # name: "cv.Ns1.Bar", cname: "cv::Ns1::Bar"
+        self.name = normalize_class_name(name) # "Ns1_Bar"
         self.methods: dict[str, FuncInfo] = {}
         self.constructor: FuncInfo = None
 
@@ -408,7 +408,7 @@ class RubyWrapperGenerator:
         self.classes: dict[str, ClassInfo] = {}
         self.namespaces: dict[str, Namespace] = {}
 
-    def add_class(self, stype, name, decl):
+    def add_class(self, stype:str, name:str, decl:list):
         classinfo = ClassInfo(name, decl)
         if classinfo.name in self.classes:
             print(f"Generator error: class {classinfo.name} (cname={classinfo.cname}) already exists")
@@ -423,17 +423,18 @@ class RubyWrapperGenerator:
             classes.insert(0, namespace.pop())
         return namespace, classes, chunks[-1]
 
-    def add_func(self, decl):
+    def add_func(self, decl:list):
+        # decl[0]: "cv.Ns1.Bar.method1"
         namespace, classes_list, barename = self.split_decl_name(decl[0])
-        #print(f"namespace: {namespace}, classes_list: {classes_list}, barename: {barename}")
-        cname = "::".join(namespace+classes_list+[barename])
-        name = barename
+        # namespace: ["cv", "Ns1"], classes_list: ["Bar"], barename: "method1"
+        cname = "::".join(namespace+classes_list+[barename]) # "cv::Ns1::Bar::method1"
+        name = barename # "method1"
         classname = ''
         bareclassname = ''
         if classes_list:
-            classname = normalize_class_name('.'.join(namespace+classes_list))
-            bareclassname = classes_list[-1]
-        namespace_str = '.'.join(namespace)
+            classname = normalize_class_name('.'.join(namespace+classes_list)) # "Ns1_Bar"
+            bareclassname = classes_list[-1]                                   # "Bar"
+        namespace_str = '.'.join(namespace) # "cv.Ns1"
         isconstructor = name == bareclassname
         is_static = False
         isphantom = False
@@ -478,9 +479,10 @@ class RubyWrapperGenerator:
                 #             print(f"{i} {decl[i]}")
                 name = decl[0]
                 if name.startswith("struct") or name.startswith("class"):
-                    cols = name.split(" ", 1)
-                    stype = cols[0] # "struct" or "class"
-                    name = cols[1]
+                    # class/struct
+                    p = name.find(" ")
+                    stype = name[:p]          # "class" of "struct"
+                    name = name[p+1:].strip() # "cv.Ns1.Bar"
                     self.add_class(stype, name, decl)
                 elif name.startswith("enum "):
                     pass
