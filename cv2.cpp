@@ -1,4 +1,5 @@
 #include <ruby.h>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -120,6 +121,38 @@ static void init_submodule(VALUE top_module, const char* name, MethodDef method_
             rb_define_const(parent_mod, const_def->name, INT2FIX(const_def->val));
         const_def++;
     }
+}
+
+static std::vector<std::string> split_string(const std::string& str, char delim){
+    std::vector<std::string> substrs;
+    std::stringstream sstream{str};
+    std::string substr;
+    while (getline(sstream, substr, delim))
+        if (!substr.empty())
+            substrs.push_back(substr);
+    return substrs;
+}
+
+static VALUE get_parent_module_by_wname(VALUE top_module, const std::string wname){
+    // wname: Ns1_Ns11_SubSubC1
+    auto modnames = split_string(wname, '_'); // ["Ns1", "Ns11", "SubSubC1"]
+    modnames.pop_back(); // remove the last element (class name) => ["Ns1", "Ns11"]
+    VALUE parent_mod = top_module;
+    VALUE submod;
+    for (const auto &modname : modnames) {
+        int name_sym = rb_intern(modname.c_str());
+        int is_defined = rb_const_defined(parent_mod, name_sym);
+        VALUE submod;
+        if (is_defined)
+            submod = rb_const_get(parent_mod, name_sym);
+        else {
+            fprintf(stderr, "[ruby cv2.cpp %s] Error: parent_mod is not defined\n", __func__);
+            parent_mod = Qnil;
+            break;
+        }
+        parent_mod = submod;
+    }
+    return parent_mod;
 }
 
 extern "C" {

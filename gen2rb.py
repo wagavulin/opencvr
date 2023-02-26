@@ -583,11 +583,14 @@ class RubyWrapperGenerator:
         # gen class registration
         with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
-                cClass = f"c{name}" # cFoo
-                wrap_struct = f" struct Wrap_{name}" # struct WrapFoo
+                # name: "Ns1_Bar"
+                barename = classinfo.cname.split("::")[-1] # "Bar"
+                cClass = f"c{name}" # cNs1_Bar
+                wrap_struct = f" struct Wrap_{name}" # struct Wrap_Ns1_Bar
                 classtype = f"{name}_type"
                 f.write(f"{{\n")
-                f.write(f"    {cClass} = rb_define_class_under(mCV2, \"{name}\", rb_cObject);\n")
+                f.write(f'    VALUE parent_mod = get_parent_module_by_wname(mCV2, "{classinfo.wname}");\n')
+                f.write(f"    {cClass} = rb_define_class_under(parent_mod, \"{barename}\", rb_cObject);\n")
                 f.write(f"    rb_define_alloc_func({cClass}, wrap_{name}_alloc);\n")
                 f.write(f"    rb_define_private_method({cClass}, \"initialize\", RUBY_METHOD_FUNC(wrap_{name}_init), 0);\n")
                 for name, func in classinfo.methods.items():
