@@ -5,7 +5,7 @@ DEPS := $(SRCS:%.cpp=%.d)
 
 CXX := g++
 CXXFLAGS := -g -fPIC -Wall -Wextra
-CPPFLAGS :=
+CPPFLAGS := $(shell pkg-config --cflags-only-I opencv4)
 LDFLAGS :=
 LIBS :=
 
