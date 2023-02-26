@@ -84,8 +84,8 @@ public:
         printf("[CXX %s] %d\n", __func__, ret);
         return ret;
     }
-    CV_WRAP int method2(int a) { return a * 2; }
-    CV_WRAP int method2(int a, int b) { return a * b; }
+    CV_WRAP int method2(int a) { return m_value1 + a + 1; }
+    CV_WRAP int method2(int a, int b) { return m_value1 + a + b; }
     int m_value1{123};
 };
 
