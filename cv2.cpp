@@ -1,4 +1,5 @@
 #include <ruby.h>
+#include <opencv2/core/types.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -10,6 +11,8 @@
 #else
 #define TRACE_PRINTF
 #endif
+
+using namespace cv;
 
 //TODO Below variable is originally defined as TLSData<...> and TLSData is defined in opencv2/core/utils/tls.hpp
 thread_local std::vector<std::string> conversionErrorsTLS;
@@ -45,6 +48,16 @@ bool rbopencv_to(VALUE obj, int& value){
     return true;
 }
 
+template<>
+bool rbopencv_to(VALUE obj, Point& p){
+    printf("[rbopencv_to Point]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    p.x = FIX2INT(rb_ary_entry(obj, 0));
+    p.y = FIX2INT(rb_ary_entry(obj, 1));
+    return true;
+}
+
 template<typename T>
 static VALUE rbopencv_from(const T& src) {
     TRACE_PRINTF("[rbopencv_from primary] should not be used\n");
@@ -55,6 +68,15 @@ template<>
 VALUE rbopencv_from(const int& value){
     TRACE_PRINTF("[rbopencv_from int]\n");
     return INT2NUM(value);
+}
+
+template<>
+VALUE rbopencv_from(const Point& p){
+    TRACE_PRINTF("[rbopencv_from Point]\n");
+    VALUE value_x = INT2NUM(p.x);
+    VALUE value_y = INT2NUM(p.y);
+    VALUE ret = rb_ary_new3(2, value_x, value_y);
+    return ret;
 }
 
 struct MethodDef {
@@ -69,7 +91,6 @@ struct ConstDef {
 };
 
 #include "autogen/rbopencv_include.hpp"
-using namespace cv;
 static VALUE mCV2;
 #include "autogen/rbopencv_wrapclass.hpp"
 

@@ -138,9 +138,11 @@ class FuncInfo:
         supported_rettypes = [
             "", # void
             "int",
+            "Point",
         ]
         supported_argtypes = [
             "int",
+            "Point",
         ]
 
         num_supported_variants:int = 0
