@@ -75,14 +75,44 @@ static VALUE mCV2;
 #include "autogen/rbopencv_funcs.hpp"
 #include "autogen/rbopencv_modules_content.hpp"
 
-static void init_submodule_cv(VALUE module, MethodDef method_defs[], ConstDef const_defs[]){
+// 1st arg (top_module) must be mCV2
+static void init_submodule(VALUE top_module, const char* name, MethodDef method_defs[], ConstDef const_defs[]){
+    // traverse and create nested submodules
+    std::string s = name;
+    size_t i = s.find('.');
+    VALUE parent_mod = top_module;
+    while (i < s.length() && i != std::string::npos)
+    {
+        size_t j = s.find('.', i);
+        if (j == std::string::npos)
+            j = s.length();
+        std::string short_name = s.substr(i, j-i);
+        std::string full_name = s.substr(0, j);
+        i = j+1;
+        std::string module_short_name{short_name};
+        // Ruby module name must begins with uppercase
+        module_short_name[0] = toupper(module_short_name[0]);
+
+        if (module_short_name == "")
+            parent_mod = top_module;
+        else {
+            int name_sym = rb_intern(module_short_name.c_str());
+            int is_defined = rb_const_defined(parent_mod, name_sym);
+            VALUE submod;
+            if (is_defined)
+                submod = rb_const_get(parent_mod, name_sym);
+            else
+                submod = rb_define_module_under(parent_mod, module_short_name.c_str());
+            parent_mod = submod;
+        }
+    }
+
     MethodDef *method_def = method_defs;
     while (method_def->name) {
-        rb_define_module_function(module, method_def->name, method_def->wrapper_func, -1);
+        rb_define_module_function(parent_mod, method_def->name, method_def->wrapper_func, -1);
         method_def++;
     }
     ConstDef *const_def = const_defs;
-    VALUE parent_mod = mCV2;
     while (const_def->name) {
         // Need to check whether the 1st character is upper case.
         // cv::datasets defines both uppercase and lowercase constants (e.g. "CIRCLE" and "circle")
@@ -97,7 +127,7 @@ void Init_cv2(){
     PRINT_FUNC();
     mCV2 = rb_define_module("CV2");
 
-    init_submodule_cv(mCV2, methods_cv, consts_cv);
+    #include "autogen/rbopencv_namespaceregistration.hpp"
     #include "autogen/rbopencv_classregistration.hpp"
 }
 }

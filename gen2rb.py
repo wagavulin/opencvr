@@ -519,7 +519,6 @@ class RubyWrapperGenerator:
                 #             print(f"{i} {decl[i]}")
                 name:str = decl[0]
                 if name.startswith("struct ") or name.startswith("class"):
-                    # class/struct
                     p = name.find(" ")
                     stype = name[:p]          # "class" of "struct"
                     name = name[p+1:].strip() # "cv.Ns1.Bar"
@@ -531,23 +530,31 @@ class RubyWrapperGenerator:
                     self.add_enum(name.rsplit(" ", 1)[1], decl) # arg: "cv.Ns1.MyEnum2"
                 else:
                     self.add_func(decl)
-        #for i, class_name in enumerate(classes):
-        #    print(f"classes[{i}] {class_name}")
-        #    classes[class_name].dump(1)
+        # for i, class_name in enumerate(self.classes):
+        #     print(f"classes[{i}] {class_name}")
+        #     self.classes[class_name].dump(1)
         classlist = list(self.classes.items())
         classlist.sort()
         classlist1 = [(classinfo.decl_idx, name, classinfo) for name, classinfo in classlist]
         classlist1.sort()
 
+        # gen namespace registration
+        with open(f"{out_dir}/rbopencv_namespaceregistration.hpp", "w") as f:
+            for ns_name, ns in sorted(self.namespaces.items()):
+                # ns_name: "cv.Ns1.Ns11"
+                ns_str = ns_name[2:]                        # ".Ns1.Ns11"
+                normed_name = normalize_class_name(ns_name) # "Ns1_Ns11"
+                f.write(f'init_submodule(mCV2, "CV2{ns_str}", methods_{normed_name}, consts_{normed_name});\n')
         # gen wrapclass
         with open(f"{out_dir}/rbopencv_wrapclass.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
                 cClass = f"c{name}" # cFoo
+                cname = classinfo.cname # cv::Ns1::Bar
                 wrap_struct = f"struct Wrap_{name}" # struct WrapFoo
                 classtype = f"{name}_type"
                 f.write(f"static VALUE {cClass};\n")
                 f.write(f"{wrap_struct} {{\n")
-                f.write(f"    {name}* v;\n")
+                f.write(f"    {cname}* v;\n")
                 f.write(f"}};\n")
                 f.write(f"static void wrap_{name}_free({wrap_struct}* ptr){{\n")
                 f.write(f"    delete ptr->v;\n")
@@ -558,8 +565,8 @@ class RubyWrapperGenerator:
                 f.write(f"    {{NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_{name}_free), NULL}},\n")
                 f.write(f"    NULL, NULL,\n")
                 f.write(f"    RUBY_TYPED_FREE_IMMEDIATELY\n")
-                f.write(f"}};")
-                f.write(f"static {name}* get_{name}(VALUE self){{\n")
+                f.write(f"}};\n")
+                f.write(f"static {cname}* get_{name}(VALUE self){{\n")
                 f.write(f"    {wrap_struct}* ptr;\n")
                 f.write(f"    TypedData_Get_Struct(self, {wrap_struct}, &{name}_type, ptr);\n")
                 f.write(f"    return ptr->v;\n")
@@ -572,7 +579,7 @@ class RubyWrapperGenerator:
                 f.write(f"}}\n")
                 f.write(f"static VALUE wrap_{name}_init(VALUE self){{\n")
                 f.write(f"    return Qnil;\n")
-                f.write(f"}}\n")
+                f.write(f"}}\n\n")
         # gen class registration
         with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
