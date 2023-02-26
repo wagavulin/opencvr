@@ -140,4 +140,34 @@ class BindTest < Test::Unit::TestCase
   #   assert_equal(m4.channels, 4)
   #   assert_equal(m4.at(0, 0), [255, 255, 255, 64])
   # end
+
+  def test_class_instance_methods
+    # instance method
+    foo = CV2::Foo.new()
+    assert_equal(foo.method1(10), 133)
+    # overloaded instance method
+    #assert_equal(foo.method2(10), 134)
+    #foo.method2(10, 2)
+    # static method
+    #assert_equal(CV2::Foo::smethod1(10), 20)
+  end
+
+  def test_submodule
+    # class in submodule
+    subsubc1 = CV2::Ns1::Ns11::SubSubC1.new()
+    assert_equal(subsubc1.method1(10), 121)
+    # function in subsubmodule
+    assert_equal(CV2::Ns1::Ns11::bindTest_Ns11(10), 21)
+  end
+
+  def test_enum
+    # enum under CV2
+    assert_equal(CV2::MYENUM1_COLOR, 1)
+    # old style enum under submodule
+    assert_equal(CV2::Ns1::MYENUM2_VALUE_C, 10)
+    # scoped enum under submodule
+    assert_equal(CV2::Ns1::MyEnum3_MYENUM3_VALUE_R, 120)
+    # old style enum under subsubmodule
+    assert_equal(CV2::Ns1::Ns11::MYENUM4_VALUE_1, 1000)
+  end
 end
