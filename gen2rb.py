@@ -128,6 +128,8 @@ class FuncInfo:
         full_fname = self.get_wrapper_name()
         if self.isconstructor:
             raise ValueError("[TODO] constructor generation is not supported")
+        if self.is_static:
+            return "static VALUE %s(int argc, VALUE *argv)" % (full_fname)
         return "static VALUE %s(int argc, VALUE *argv, VALUE klass)" % (full_fname)
 
     def is_target_function(self) -> tuple[int, list[tuple[bool, str]]]:
@@ -147,9 +149,9 @@ class FuncInfo:
             num_mandatory_args = 0
             num_optional_args = 0
             strs = self.cname.split("::")
-            if self.is_static:
-                support_statuses.append((False, f"static method is not supported: {self.cname}"))
-                continue
+            # if self.is_static:
+            #     support_statuses.append((False, f"static method is not supported: {self.cname}"))
+            #     continue
             if not v.rettype in supported_rettypes:
                 support_statuses.append((False, f"retval type is not supported: {self.variants[0].rettype}"))
                 continue
@@ -341,7 +343,7 @@ class FuncInfo:
                 f.write(f"            raw_retval = ")
             else:
                 f.write(f"            ")
-            if self.classname: # call instance method
+            if self.classname and not self.is_static: # call instance method
                 f.write(f"get_{self.classname}(klass)->{self.name}")
             else:              # call global function
                 f.write(f"{self.cname}")
@@ -592,10 +594,11 @@ class RubyWrapperGenerator:
                 f.write(f"    rb_define_alloc_func({cClass}, wrap_{name}_alloc);\n")
                 f.write(f"    rb_define_private_method({cClass}, \"initialize\", RUBY_METHOD_FUNC(wrap_{name}_init), 0);\n")
                 for name, func in classinfo.methods.items():
-                    if func.is_static:
-                        continue
                     wrapper_name = func.get_wrapper_name()
-                    f.write(f"    rb_define_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
+                    if func.is_static:
+                        f.write(f"    rb_define_singleton_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
+                    else:
+                        f.write(f"    rb_define_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
                 f.write(f"}}\n")
         # gen funcs
         with open(f"{out_dir}/rbopencv_funcs.hpp", "w") as f:
@@ -612,8 +615,6 @@ class RubyWrapperGenerator:
             for decl_idx, name, classinfo in classlist1:
                 for name, func in sorted(classinfo.methods.items()):
                     if func.isconstructor:
-                        continue
-                    if func.is_static:
                         continue
                     funcs.append(func)
             for func in funcs:

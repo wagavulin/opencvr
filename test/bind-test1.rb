@@ -148,8 +148,11 @@ class BindTest < Test::Unit::TestCase
     # overloaded instance method
     #assert_equal(foo.method2(10), 134)
     #foo.method2(10, 2)
-    # static method
-    #assert_equal(CV2::Foo::smethod1(10), 20)
+    # static method (as class method)
+    assert_equal(CV2::Foo::smethod1(10), 20)
+    assert_equal(CV2::Foo.smethod1(10), 20)
+    # static method (as global function)
+    #assert_equal(CV2::Foo_smethod1(10), 20)
   end
 
   def test_submodule
