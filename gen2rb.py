@@ -149,9 +149,6 @@ class FuncInfo:
             num_mandatory_args = 0
             num_optional_args = 0
             strs = self.cname.split("::")
-            # if self.is_static:
-            #     support_statuses.append((False, f"static method is not supported: {self.cname}"))
-            #     continue
             if not v.rettype in supported_rettypes:
                 support_statuses.append((False, f"retval type is not supported: {self.variants[0].rettype}"))
                 continue
@@ -486,7 +483,23 @@ class RubyWrapperGenerator:
             func.add_variant(decl, isphantom)
 
             # Add it as global function
-            # Need to copy from python-binding
+            g_name = "_".join(classes+[name]) # "SubSubC1_smethod1"
+            w_classes = [] # will be ["SubSubC1"]
+            for i in range(0, len(classes)):
+                classes_i = classes[:i+1]
+                classname_i = normalize_class_name('.'.join(namespace+classes_i))
+                w_classname = self.classes[classname_i].wname
+                namespace_prefix = normalize_class_name('.'.join(namespace)) + '_'
+                if w_classname.startswith(namespace_prefix):
+                    w_classname = w_classname[len(namespace_prefix):]
+                w_classes.append(w_classname)
+            g_wname = "_".join(w_classes+[name]) # "SubSubC1_smethod1"
+            func_map = self.namespaces.setdefault(namespace_str, Namespace()).funcs
+            func = func_map.setdefault(g_name, FuncInfo("", g_name, cname, isconstructor, namespace_str, False))
+            func.add_variant(decl, isphantom)
+            if g_wname != g_name:  # TODO OpenCV 5.0
+                wfunc = func_map.setdefault(g_wname, FuncInfo("", g_wname, cname, isconstructor, namespace_str, False))
+                wfunc.add_variant(decl, isphantom)
         else:
             if classname and not isconstructor:
                 func_map = self.classes[classname].methods
