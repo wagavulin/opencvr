@@ -511,6 +511,7 @@ class RubyWrapperGenerator:
             self.classes[classname].constructor = func
 
     def gen(self, headers:list[str], out_dir:str):
+        fout_inc = open(f"{out_dir}/rbopencv_include.hpp", "w")
         for hdr in headers:
             decls = self.parser.parse(hdr)
             hdr_fname = os.path.split(hdr)[1]
@@ -518,8 +519,7 @@ class RubyWrapperGenerator:
             out_json_path = f"{out_dir}/tmp-{hdr_stem}.json"
             with open(out_json_path, "w") as f:
                 json.dump(decls, f, indent=2)
-            with open(f"{out_dir}/rbopencv_include.hpp", "w") as f:
-                f.write(f'#include "{hdr}"\n')
+            fout_inc.write(f'#include "{hdr}"\n')
             for decl in decls:
                 # for i in range(len(decl)):
                 #     if i == 3:
@@ -543,6 +543,7 @@ class RubyWrapperGenerator:
                     self.add_enum(name.rsplit(" ", 1)[1], decl) # arg: "cv.Ns1.MyEnum2"
                 else:
                     self.add_func(decl)
+        fout_inc.close()
         # for i, class_name in enumerate(self.classes):
         #     print(f"classes[{i}] {class_name}")
         #     self.classes[class_name].dump(1)
