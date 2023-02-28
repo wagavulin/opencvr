@@ -608,6 +608,9 @@ class RubyWrapperGenerator:
                 f.write(f"    rb_define_alloc_func({cClass}, wrap_{name}_alloc);\n")
                 f.write(f"    rb_define_private_method({cClass}, \"initialize\", RUBY_METHOD_FUNC(wrap_{name}_init), 0);\n")
                 for name, func in classinfo.methods.items():
+                    num_supported_variants, _ = func.is_target_function()
+                    if num_supported_variants == 0:
+                        continue
                     wrapper_name = func.get_wrapper_name()
                     if func.is_static:
                         f.write(f"    rb_define_singleton_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
