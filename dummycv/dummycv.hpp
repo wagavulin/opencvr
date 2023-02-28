@@ -124,6 +124,7 @@ enum MyEnum4 {
 };
 class CV_EXPORTS_W SubSubC1 {
 public:
+    CV_WRAP static int smethod1(int a) { return a + 20; }
     CV_WRAP SubSubC1() {}
     CV_WRAP SubSubC1(int v1) : m_value1(v1) {}
     CV_WRAP int method1(int a) { return a + m_value1; }
