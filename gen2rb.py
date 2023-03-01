@@ -8,6 +8,7 @@ import sys
 
 import hdr_parser
 
+g_logger = open("log-gen2rb.txt", "w")
 g_log_processed_funcs:list["FuncInfo"] = []
 
 def normalize_class_name(name):
@@ -46,7 +47,7 @@ class ArgInfo:
             elif m == "/RRef":
                 raise ValueError("/RRef is not supported")
             else:
-                print(f"unhandled tuple[3]: {m}")
+                print(f"unhandled tuple[3]: {m}", file=g_logger)
         self.py_inputarg:bool = False
         self.py_outputarg:bool = False
 
@@ -682,6 +683,7 @@ dstdir = "./autogen"
 os.makedirs(dstdir, exist_ok=True)
 generator = RubyWrapperGenerator()
 generator.gen(headers, dstdir)
+g_logger.close()
 
 with open(f"{dstdir}/support-status.csv", "w") as f:
     for func in g_log_processed_funcs:
