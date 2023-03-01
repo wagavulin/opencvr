@@ -384,6 +384,7 @@ class ClassInfo:
         self.cname = name.replace(".", "::")   # name: "cv.Ns1.Bar", cname: "cv::Ns1::Bar"
         self.wname = normalize_class_name(name) # "Ns1_Bar"
         self.name = self.wname
+        self.isinterface = False
         self.methods: dict[str, FuncInfo] = {}
         self.constructor: FuncInfo = None
 
@@ -470,9 +471,12 @@ class RubyWrapperGenerator:
         isconstructor = name == bareclassname
         is_static = False
         isphantom = False
+        ispurevirtual = False
         for m in decl[2]:
             if m == "/S":
                 is_static = True
+            if m == "/PV":
+                ispurevirtual = True
 
         if isconstructor:
             name = "_".join(classes[:-1]+[name])
@@ -510,6 +514,8 @@ class RubyWrapperGenerator:
             func.add_variant(decl, isphantom)
         if classname and isconstructor:
             self.classes[classname].constructor = func
+        if classname and ispurevirtual:
+            self.classes[classname].isinterface = True
 
     def gen(self, headers:list[str], out_dir:str):
         fout_inc = open(f"{out_dir}/rbopencv_include.hpp", "w")
@@ -563,6 +569,9 @@ class RubyWrapperGenerator:
         # gen wrapclass
         with open(f"{out_dir}/rbopencv_wrapclass.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
+                if classinfo.isinterface:
+                    print(f'skip generating wrapperclass of interface class: {classinfo.cname}', file=g_logger)
+                    continue
                 cClass = f"c{name}" # cFoo
                 cname = classinfo.cname # cv::Ns1::Bar
                 wrap_struct = f"struct Wrap_{name}" # struct WrapFoo
@@ -598,6 +607,8 @@ class RubyWrapperGenerator:
         # gen class registration
         with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
+                if classinfo.isinterface:
+                    print(f'skip generating classregistration for interface class {classinfo.cname}', file=g_logger)
                 # name: "Ns1_Bar"
                 barename = classinfo.cname.split("::")[-1] # "Bar"
                 cClass = f"c{name}" # cNs1_Bar
