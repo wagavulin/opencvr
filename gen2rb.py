@@ -385,13 +385,32 @@ class ClassInfo:
         self.wname = normalize_class_name(name) # "Ns1_Bar"
         self.name = self.wname
         self.isinterface = False
+        self.isalgorithm = False
         self.methods: dict[str, FuncInfo] = {}
+        self.base = None
         self.constructor: FuncInfo = None
+
+        if decl:
+            bases = decl[1].split()[1:]
+            if len(bases) > 1:
+                print("Note: Class %s has more than 1 base class (not supported by Python C extensions)" % (self.name,))
+                print("      Bases: ", " ".join(bases))
+                print("      Only the first base class will be used")
+                #return sys.exit(-1)
+            elif len(bases) == 1:
+                self.base = bases[0].strip(",")
+                if self.base.startswith("cv::"):
+                    self.base = self.base[4:]
+                if self.base == "Algorithm":
+                    self.isalgorithm = True
+                self.base = self.base.replace("::", "_")
 
     def dump(self, depth):
         indent = "  " * depth
         print(f"{indent}cname: {self.cname}")
+        print(f"{indent}wname: {self.wname}")
         print(f"{indent}name: {self.name}")
+        print(f"{indent}base: {self.base}")
         for i, method_name in enumerate(self.methods):
             print(f"{indent}methods[{i}] {method_name}")
             self.methods[method_name].dump(depth+1)
@@ -551,6 +570,22 @@ class RubyWrapperGenerator:
                 else:
                     self.add_func(decl)
         fout_inc.close()
+        processed = dict()
+        def process_isalgorithm(classinfo):
+            if classinfo.isalgorithm or classinfo in processed:
+                return classinfo.isalgorithm
+            res = False
+            if classinfo.base:
+                res = process_isalgorithm(self.classes[classinfo.base])
+                #assert not (res == True or classinfo.isalgorithm is False), "Internal error: " + classinfo.name + " => " + classinfo.base
+                classinfo.isalgorithm |= res
+                res = classinfo.isalgorithm
+            processed[classinfo] = True
+            return res
+        for name, classinfo in self.classes.items():
+            process_isalgorithm(classinfo)
+
+
         # for i, class_name in enumerate(self.classes):
         #     print(f"classes[{i}] {class_name}")
         #     self.classes[class_name].dump(1)
@@ -569,7 +604,7 @@ class RubyWrapperGenerator:
         # gen wrapclass
         with open(f"{out_dir}/rbopencv_wrapclass.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
-                if classinfo.isinterface:
+                if classinfo.isinterface or classinfo.isalgorithm:
                     print(f'skip generating wrapperclass of interface class: {classinfo.cname}', file=g_logger)
                     continue
                 cClass = f"c{name}" # cFoo
@@ -607,8 +642,9 @@ class RubyWrapperGenerator:
         # gen class registration
         with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
-                if classinfo.isinterface:
+                if classinfo.isinterface or classinfo.isalgorithm:
                     print(f'skip generating classregistration for interface class {classinfo.cname}', file=g_logger)
+                    continue
                 # name: "Ns1_Bar"
                 barename = classinfo.cname.split("::")[-1] # "Bar"
                 cClass = f"c{name}" # cNs1_Bar
@@ -644,6 +680,9 @@ class RubyWrapperGenerator:
             for decl_idx, name, classinfo in classlist1:
                 for name, func in sorted(classinfo.methods.items()):
                     if func.isconstructor:
+                        continue
+                    cls = self.classes[func.classname]
+                    if cls.isinterface or cls.isalgorithm:
                         continue
                     funcs.append(func)
             for func in funcs:
