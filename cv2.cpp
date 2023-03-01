@@ -49,6 +49,13 @@ bool rbopencv_to(VALUE obj, int& value){
 }
 
 template<>
+bool rbopencv_to(VALUE obj, double& value){
+    TRACE_PRINTF("[rbopencv_to double]\n");
+    value = NUM2DBL(obj);
+    return true;
+}
+
+template<>
 bool rbopencv_to(VALUE obj, Point& p){
     printf("[rbopencv_to Point]\n");
     if (TYPE(obj) != T_ARRAY)
@@ -68,6 +75,12 @@ template<>
 VALUE rbopencv_from(const int& value){
     TRACE_PRINTF("[rbopencv_from int]\n");
     return INT2NUM(value);
+}
+
+template<>
+VALUE rbopencv_from(const double& value){
+    TRACE_PRINTF("[rbopencv_from double]\n");
+    return DBL2NUM(value);
 }
 
 template<>
