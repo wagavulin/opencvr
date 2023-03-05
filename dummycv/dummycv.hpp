@@ -46,6 +46,11 @@ CV_EXPORTS_W void bindTest4(int a, CV_IN_OUT Point& pt) { pt.x += a; pt.y -= a; 
 // CV_EXPORTS_W void bindTest5(int a, CV_IN_OUT Point& pt, CV_OUT int* x);
 // CV_EXPORTS_W bool bindTest6(int a, CV_IN_OUT Point& pt, CV_OUT int* x);
 
+CV_EXPORTS_W double bindTest_double(double a) { return a + 0.5; }
+
+CV_EXPORTS_W double bindTest_overload(double a) { return a * 2.0; }
+CV_EXPORTS_W double bindTest_overload(Point pt) { return pt.x * 2.0 + pt.y * 2.0; }
+// CV_EXPORTS_W double bindTest_overload(double a, double b) { return a * b; }
 // CV_EXPORTS_W double bindTest_overload(Point a, Point b, double c);
 // CV_EXPORTS_W double bindTest_overload(RotatedRect a);
 

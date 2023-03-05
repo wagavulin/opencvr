@@ -58,8 +58,16 @@ bool rbopencv_to(VALUE obj, bool& value){
 template<>
 bool rbopencv_to(VALUE obj, double& value){
     TRACE_PRINTF("[rbopencv_to double]\n");
-    value = NUM2DBL(obj);
-    return true;
+    ruby_value_type t = rb_type(obj);
+    bool ret = false;
+    if (rb_integer_type_p(obj)) {
+        value = FIX2INT(obj);
+        ret = true;
+    } else if (RB_TYPE_P(obj, RUBY_T_FLOAT)) {
+        value = NUM2DBL(obj);
+        ret = true;
+    }
+    return ret;
 }
 
 template<>
