@@ -326,6 +326,15 @@ bool rbopencv_to(VALUE obj, int& value){
 }
 
 template<>
+bool rbopencv_to(VALUE obj, size_t& value){
+    TRACE_PRINTF("[rbopencv_to size_t]\n");
+    if (!FIXNUM_P(obj))
+        return false;
+    value = FIX2ULONG(obj);
+    return true;
+}
+
+template<>
 bool rbopencv_to(VALUE obj, bool& value){
     TRACE_PRINTF("[rbopencv_to bool]\n");
     value = obj == Qtrue ? true : false;
@@ -443,6 +452,12 @@ template<>
 VALUE rbopencv_from(const int& value){
     TRACE_PRINTF("[rbopencv_from int]\n");
     return INT2NUM(value);
+}
+
+template<>
+VALUE rbopencv_from(const size_t& value){
+    TRACE_PRINTF("[rbopencv_from size_t]\n");
+    return ULONG2NUM(value);
 }
 
 template<>

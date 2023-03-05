@@ -138,6 +138,7 @@ class FuncInfo:
             "", # void
             "Mat",
             "int",
+            "size_t",
             "bool",
             "double",
             "Point"
@@ -147,6 +148,7 @@ class FuncInfo:
         supported_argtypes = [
             "Mat",
             "int",
+            "size_t",
             "bool",
             "double",
             "String",
