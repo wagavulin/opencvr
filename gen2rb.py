@@ -45,7 +45,7 @@ class ArgInfo:
             elif m == "/CA":
                 raise ValueError("/CA is not supported")
             elif m == "/RRef":
-                raise ValueError("/RRef is not supported")
+                print("/RRef is not supported", file=g_logger)
             else:
                 print(f"unhandled tuple[3]: {m}", file=g_logger)
         self.py_inputarg:bool = False
@@ -389,6 +389,7 @@ class ClassInfo:
         self.isinterface = False
         self.isalgorithm = False
         self.methods: dict[str, FuncInfo] = {}
+        self.mappables: list[str] = []
         self.base = None
         self.constructor: FuncInfo = None
 
@@ -492,12 +493,17 @@ class RubyWrapperGenerator:
         isconstructor = name == bareclassname
         is_static = False
         isphantom = False
+        mappable = None
         ispurevirtual = False
         for m in decl[2]:
             if m == "/S":
                 is_static = True
-            if m == "/PV":
+            elif m == "/PV":
                 ispurevirtual = True
+            elif m.startswith("/mappable="):
+                mappable = m[10:]
+                self.classes[classname].mappables.append(mappable)
+                return
 
         if isconstructor:
             name = "_".join(classes[:-1]+[name])
@@ -578,7 +584,11 @@ class RubyWrapperGenerator:
                 return classinfo.isalgorithm
             res = False
             if classinfo.base:
-                res = process_isalgorithm(self.classes[classinfo.base])
+                if classinfo.base in self.classes:
+                    res = process_isalgorithm(self.classes[classinfo.base])
+                else:
+                    base2 = classinfo.base.split("_")[1]
+                    res = process_isalgorithm(self.classes[base2])
                 #assert not (res == True or classinfo.isalgorithm is False), "Internal error: " + classinfo.name + " => " + classinfo.base
                 classinfo.isalgorithm |= res
                 res = classinfo.isalgorithm
@@ -721,7 +731,6 @@ class RubyWrapperGenerator:
                 f.write('#ifdef {}\n    {}\n#endif\n'.format(custom_entries_macro, custom_entries_macro))
                 f.write('    {NULL, 0}\n};\n\n')
 
-
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:
     headers_txt = sys.argv[1]
@@ -729,8 +738,9 @@ headers = []
 with open(headers_txt) as f:
     for line in f:
         line = line.strip()
-        if not line.startswith("#"):
-            headers.append(line)
+        if line.startswith("#"):
+            continue
+        headers.append(line)
 dstdir = "./autogen"
 os.makedirs(dstdir, exist_ok=True)
 generator = RubyWrapperGenerator()
