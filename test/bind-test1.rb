@@ -63,12 +63,18 @@ class BindTest < Test::Unit::TestCase
 
   def test_bind_overload
     assert_equal(CV2.bindTest_overload(3.0), 6.0)
-  #   assert_equal(CV2.bindTest_overload([10, 20], 60))
+    assert_equal(CV2.bindTest_overload([10, 20]), 60)
+    assert_equal(CV2.bindTest_overload(3.0, 3), 9.0)
   #   ret = CV2.bindTest_overload([1, 2], [3, 4], 5)
   #   assert_equal(ret, 15)
   #   ret = CV2.bindTest_overload([[1, 2], [3, 4], 5])
   #   assert_equal(ret, 15)
   end
+
+  # def test_bind_overload2
+  #   assert_equal(CV2.bindTest_overload2(10), 11)
+  #   assert_equal(CV2.bindTest_overload2(10, 20), 30)
+  # end
 
   # def test_bind_Mat
   #   m1 = CV2.imread(__dir__ + "/images/200x200bgrw.png")
@@ -155,7 +161,7 @@ class BindTest < Test::Unit::TestCase
     foo = CV2::Foo.new()
     assert_equal(foo.method1(10), 133)
     # overloaded instance method
-    #assert_equal(foo.method2(10), 134)
+    assert_equal(foo.method2(10, 1), 134)
     #foo.method2(10, 2)
     # static method (as class method)
     assert_equal(CV2::Foo::smethod1(10), 20)

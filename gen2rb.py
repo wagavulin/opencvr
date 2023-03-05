@@ -205,9 +205,12 @@ class FuncInfo:
         f.write(f"\n")
         f.write(f"    std::string err_msg;\n")
         #f.write(f"    rbPrepareArgumentConversionErrorsStorage({self.num_supported_variants});\n")
-        for var_idx, v in enumerate(self.variants):
-            if not self.support_statuses[var_idx][0]:
-                continue
+        vars = []
+        for var_idx, var in enumerate(self.variants):
+            if self.support_statuses[var_idx][0]:
+                vars.append(var)
+        vars = sorted(vars, reverse=True, key=lambda var: len(var.args))
+        for var_idx, v in enumerate(vars):
             # variables for raw variable definitions (rvd)
             rvd_raw_types = []
             rvd_raw_var_names = []
@@ -738,6 +741,7 @@ class RubyWrapperGenerator:
                 f.write('    {NULL, 0}\n};\n\n')
 
 headers_txt = "./headers.txt"
+headers_txt = "./headers-cv2partial.txt"
 if len(sys.argv) == 2:
     headers_txt = sys.argv[1]
 headers = []

@@ -50,9 +50,14 @@ CV_EXPORTS_W double bindTest_double(double a) { return a + 0.5; }
 
 CV_EXPORTS_W double bindTest_overload(double a) { return a * 2.0; }
 CV_EXPORTS_W double bindTest_overload(Point pt) { return pt.x * 2.0 + pt.y * 2.0; }
-// CV_EXPORTS_W double bindTest_overload(double a, double b) { return a * b; }
+CV_EXPORTS_W double bindTest_overload(double a, double b) { return a * b; }
 // CV_EXPORTS_W double bindTest_overload(Point a, Point b, double c);
 // CV_EXPORTS_W double bindTest_overload(RotatedRect a);
+
+// Overloaded functions with CV_EXPORTS and CV_EXPORTS_W (cv::clipLine uses this style).
+// Only the last one is supported even in python-binding
+// CV_EXPORTS   int bindTest_overload2(int a) { return a + 1; }
+// CV_EXPORTS_W int bindTest_overload2(int a, int b) { return a + b; }
 
 CV_EXPORTS_W void bindTest_Out_Point(int a, CV_OUT Point& pt) { pt.x=a+10; pt.y=a-10; }
 // CV_EXPORTS_W void bindTest_InOut_Mat(CV_IN_OUT Mat& a);
@@ -134,6 +139,7 @@ public:
     CV_WRAP SubSubC1() {}
     CV_WRAP SubSubC1(int v1) : m_value1(v1) {}
     CV_WRAP int method1(int a) { return a + m_value1; }
+    CV_WRAP int method1(int a, int b) { return a + b + m_value1; }
     int m_value1{111};
 };
 } // namespace Ns11
