@@ -136,6 +136,7 @@ class FuncInfo:
     def is_target_function(self) -> tuple[int, list[tuple[bool, str]]]:
         supported_rettypes = [
             "", # void
+            "Mat",
             "int",
             "bool",
             "double",
@@ -144,9 +145,11 @@ class FuncInfo:
             "Size",
         ]
         supported_argtypes = [
+            "Mat",
             "int",
             "bool",
             "double",
+            "String",
             "Point",
             "Scalar",
             "Size",

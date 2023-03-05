@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 $:.unshift(File.dirname(__FILE__) + "/..")
+require 'numo/narray'
 require 'cv2'
 require 'test/unit'
 
@@ -102,6 +103,7 @@ class BindTest < Test::Unit::TestCase
   end
 
   def test_bind_basic_classes
+    assert_equal(CV2.bindTest_In_String("hello"), 5)
     ret = CV2.bindTest_InOut_Scalar([10, 20, 30, 40])
     assert_equal(ret, [11, 22, 33, 44])
     ret = CV2.bindTest_InOut_Size([100, 200])
@@ -124,7 +126,7 @@ class BindTest < Test::Unit::TestCase
   #   assert_equal(ret, [[2, 3], [4, 5], [10, 11], [20, 21]])
   end
 
-  # def test_mat_1
+  def test_mat_1
   #   m1 = CV2.imread(__dir__ + "/images/200x200bgrw.png")
   #   c = m1.at(50, 50)
   #   assert_equal(c[0], 255)
@@ -142,7 +144,7 @@ class BindTest < Test::Unit::TestCase
   #   assert_equal(c[0], 255)
   #   assert_equal(c[1], 255)
   #   assert_equal(c[2], 255)
-  # end
+  end
 
   # def test_mat_at
   #   m1 = CV2.imread(__dir__ + "/images/alpha.png", CV2::IMREAD_GRAYSCALE)
@@ -193,5 +195,14 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2::Ns1::MyEnum3_MYENUM3_VALUE_R, 120)
     # old style enum under subsubmodule
     assert_equal(CV2::Ns1::Ns11::MYENUM4_VALUE_1, 1000)
+  end
+
+  def test_imgproc
+    img0 = Numo::UInt8.zeros(600, 800, 3)
+    img0[0..-1, 0..-1, 0] = 255
+    img1 = img0.clone()
+    CV2::rectangle(img1, [50,50], [150, 100], [255,255,255])
+    assert_not_equal(img1, img0)
+    #CV2::imshow("Test", img0); CV2::waitKey(0); CV2::destroyAllWindows()
   end
 end

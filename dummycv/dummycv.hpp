@@ -68,6 +68,7 @@ CV_EXPORTS_W void bindTest_InOut_bool(CV_IN_OUT bool& a) { a = !a; }
 // CV_EXPORTS_W void bindTest_InOut_size_t(CV_IN_OUT size_t& a);
 // CV_EXPORTS_W void bindTest_InOut_float(CV_IN_OUT float& a);
 // CV_EXPORTS_W void bindTest_InOut_double(CV_IN_OUT double& a);
+CV_EXPORTS_W int bindTest_In_String(const cv::String& s) { return s.length(); }
 CV_EXPORTS_W void bindTest_InOut_Scalar(CV_IN_OUT Scalar& a) { a[0] += 1; a[1] += 2; a[2] += 3; a[3] += 4; }
 CV_EXPORTS_W void bindTest_InOut_Size(CV_IN_OUT Size& a) { a.width += 10; a.height += 10; }
 // CV_EXPORTS_W void bindTest_InOut_Size2f(CV_IN_OUT Size2f& a);
