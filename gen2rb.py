@@ -744,7 +744,6 @@ class RubyWrapperGenerator:
                 f.write('    {NULL, 0}\n};\n\n')
 
 headers_txt = "./headers.txt"
-headers_txt = "./headers-cv2partial.txt"
 if len(sys.argv) == 2:
     headers_txt = sys.argv[1]
 headers = []
