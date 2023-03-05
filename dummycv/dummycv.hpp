@@ -51,14 +51,15 @@ CV_EXPORTS_W void bindTest4(int a, CV_IN_OUT Point& pt) { pt.x += a; pt.y -= a; 
 
 CV_EXPORTS_W void bindTest_Out_Point(int a, CV_OUT Point& pt) { pt.x=a+10; pt.y=a-10; }
 // CV_EXPORTS_W void bindTest_InOut_Mat(CV_IN_OUT Mat& a);
-// CV_EXPORTS_W void bindTest_InOut_bool(CV_IN_OUT bool& a);
+CV_EXPORTS_W void bindTest_InOut_bool(CV_IN_OUT bool& a) { a = !a; }
 // CV_EXPORTS_W void bindTest_InOut_uchar(CV_IN_OUT uchar& a);
 // CV_EXPORTS_W void bindTest_InOut_int(CV_IN_OUT int& a);
 // CV_EXPORTS_W void bindTest_Out_intp(CV_OUT int* a);
 // CV_EXPORTS_W void bindTest_InOut_size_t(CV_IN_OUT size_t& a);
 // CV_EXPORTS_W void bindTest_InOut_float(CV_IN_OUT float& a);
 // CV_EXPORTS_W void bindTest_InOut_double(CV_IN_OUT double& a);
-// CV_EXPORTS_W void bindTest_InOut_Size(CV_IN_OUT Size& a);
+CV_EXPORTS_W void bindTest_InOut_Scalar(CV_IN_OUT Scalar& a) { a[0] += 1; a[1] += 2; a[2] += 3; a[3] += 4; }
+CV_EXPORTS_W void bindTest_InOut_Size(CV_IN_OUT Size& a) { a.width += 10; a.height += 10; }
 // CV_EXPORTS_W void bindTest_InOut_Size2f(CV_IN_OUT Size2f& a);
 CV_EXPORTS_W void bindTest_InOut_Point(CV_IN_OUT Point& a) { a.x+=10; a.y+=10; }
 // CV_EXPORTS_W void bindTest_InOut_Point2f(CV_IN_OUT Point2f& a);

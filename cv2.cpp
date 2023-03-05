@@ -49,6 +49,13 @@ bool rbopencv_to(VALUE obj, int& value){
 }
 
 template<>
+bool rbopencv_to(VALUE obj, bool& value){
+    TRACE_PRINTF("[rbopencv_to bool]\n");
+    value = obj == Qtrue ? true : false;
+    return true;
+}
+
+template<>
 bool rbopencv_to(VALUE obj, double& value){
     TRACE_PRINTF("[rbopencv_to double]\n");
     value = NUM2DBL(obj);
@@ -65,6 +72,56 @@ bool rbopencv_to(VALUE obj, Point& p){
     return true;
 }
 
+template<>
+bool rbopencv_to(VALUE obj, Scalar& s){
+    TRACE_PRINTF("[rbopencv_to Scalar]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    long len = rb_array_len(obj);
+    if (len > 4) {
+        fprintf(stderr, "  too many elements: %ld\n", len);
+        return false;
+    }
+    long copy_num = len < 4 ? len : 4;
+    for (long i = 0; i < copy_num; i++) {
+        VALUE value_elem = rb_ary_entry(obj, i);
+        int value_type = TYPE(value_elem);
+        if (value_type == T_FLOAT) {
+            s[i] = NUM2DBL(value_elem);
+        } else if (value_type == T_FIXNUM) {
+            s[i] = FIX2INT(value_elem);
+        }
+        TRACE_PRINTF("  %ld: %f\n", i, s[i]);
+    }
+    return true;
+}
+
+template<>
+bool rbopencv_to(VALUE obj, Size& sz){
+    TRACE_PRINTF("[rbopencv_to Size]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    long len = rb_array_len(obj);
+    if (len != 2) {
+        fprintf(stderr, "  # elements is not 2: %ld\n", len);
+        return false;
+    }
+    double tmp[2];
+    for (long i = 0; i < 2; i++) {
+        VALUE value_elem = rb_ary_entry(obj, i);
+        int value_type = TYPE(value_elem);
+        if (value_type == T_FLOAT) {
+            tmp[i] = NUM2DBL(value_elem);
+        } else if (value_type == T_FIXNUM) {
+            tmp[i] = FIX2INT(value_elem);
+        }
+    }
+    sz.width = tmp[0];
+    sz.height = tmp[1];
+    TRACE_PRINTF("  %f %f\n", sz.width, sz.height);
+    return true;
+}
+
 template<typename T>
 static VALUE rbopencv_from(const T& src) {
     TRACE_PRINTF("[rbopencv_from primary] should not be used\n");
@@ -78,9 +135,35 @@ VALUE rbopencv_from(const int& value){
 }
 
 template<>
+VALUE rbopencv_from(const bool& value){
+    TRACE_PRINTF("[rbopencv_from bool]\n");
+    return value ? Qtrue : Qfalse;
+}
+
+template<>
 VALUE rbopencv_from(const double& value){
     TRACE_PRINTF("[rbopencv_from double]\n");
     return DBL2NUM(value);
+}
+
+template<>
+VALUE rbopencv_from(const Scalar& s){
+    TRACE_PRINTF("[rbopencv_from Scalar]\n");
+    VALUE v0 = DBL2NUM(s[0]);
+    VALUE v1 = DBL2NUM(s[1]);
+    VALUE v2 = DBL2NUM(s[2]);
+    VALUE v3 = DBL2NUM(s[3]);
+    VALUE ret = rb_ary_new3(4, v0, v1, v2, v3);
+    return ret;
+}
+
+template<>
+VALUE rbopencv_from(const Size& sz){
+    TRACE_PRINTF("[rbopencv_from Size]\n");
+    VALUE value_width = INT2NUM(sz.width);
+    VALUE value_height = INT2NUM(sz.height);
+    VALUE ret = rb_ary_new3(2, value_width, value_height);
+    return ret;
 }
 
 template<>

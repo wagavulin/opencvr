@@ -71,9 +71,9 @@ class BindTest < Test::Unit::TestCase
   #   assert_equal(m2.at(0, 0), [100, 110, 120])
   # end
 
-  # def test_bind_primitive_types
-  #   ret = CV2.bindTest_InOut_bool(true)
-  #   assert_equal(ret, false)
+  def test_bind_primitive_types
+    ret = CV2.bindTest_InOut_bool(true)
+    assert_equal(ret, false)
   #   ret = CV2.bindTest_InOut_uchar(10)
   #   assert_equal(ret, 20)
   #   ret = CV2.bindTest_InOut_int(10)
@@ -86,11 +86,13 @@ class BindTest < Test::Unit::TestCase
   #   assert_equal(ret, 1.5)
   #   ret = CV2.bindTest_InOut_double(1)
   #   assert_equal(ret, 1.5)
-  # end
+  end
 
   def test_bind_basic_classes
-  #   ret = CV2.bindTest_InOut_Size([100, 200])
-  #   assert_equal(ret, [110, 210])
+    ret = CV2.bindTest_InOut_Scalar([10, 20, 30, 40])
+    assert_equal(ret, [11, 22, 33, 44])
+    ret = CV2.bindTest_InOut_Size([100, 200])
+    assert_equal(ret, [110, 210])
   #   ret = CV2.bindTest_InOut_Size2f([20.5, 21.5])
   #   assert_equal(ret, [21.0, 22.0])
   #   ret = CV2.bindTest_InOut_Size2f([20, 21])
