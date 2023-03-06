@@ -144,6 +144,7 @@ class FuncInfo:
             "Point"
             "Scalar",
             "Size",
+            "vector_Mat",
         ]
         supported_argtypes = [
             "Mat",
@@ -155,6 +156,7 @@ class FuncInfo:
             "Point",
             "Scalar",
             "Size",
+            "vector_Mat",
         ]
 
         num_supported_variants:int = 0
