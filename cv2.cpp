@@ -7,8 +7,6 @@
 #include <string>
 #include <vector>
 
-#define PRINT_FUNC() fprintf(stderr, "[%s]\n", __func__)
-#define PRINT_CXXFUNC() fprintf(stderr, "[CXX %s]\n", __func__)
 #if TRACE
 #define TRACE_PRINTF printf
 #else
@@ -369,7 +367,7 @@ bool rbopencv_to(VALUE obj, String& value){
 
 template<>
 bool rbopencv_to(VALUE obj, Point& p){
-    printf("[rbopencv_to Point]\n");
+    TRACE_PRINTF("[rbopencv_to Point]\n");
     if (TYPE(obj) != T_ARRAY)
         return false;
     p.x = FIX2INT(rb_ary_entry(obj, 0));
@@ -631,7 +629,6 @@ static VALUE get_parent_module_by_wname(VALUE top_module, const std::string wnam
 
 extern "C" {
 void Init_cv2(){
-    PRINT_FUNC();
     mCV2 = rb_define_module("CV2");
 
     #include "autogen/rbopencv_namespaceregistration.hpp"

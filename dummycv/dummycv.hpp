@@ -4,8 +4,13 @@
 #include <opencv2/core/types.hpp>
 #include <cstdio>
 
+#if TRACE
 #define PRINT_FUNC() fprintf(stderr, "[%s]\n", __func__)
 #define PRINT_CXXFUNC() fprintf(stderr, "[CXX %s]\n", __func__)
+#else
+#define PRINT_FUNC()
+#define PRINT_CXXFUNC()
+#endif
 
 // Copied from opencv/modules/core/include/opencv2/core/cvdef.h
 #ifndef CV_EXPORTS
@@ -93,7 +98,6 @@ public:
     ~Foo() { PRINT_CXXFUNC(); }
     CV_WRAP int method1(int a) {
         int ret = m_value1 + a;
-        printf("[CXX %s] %d\n", __func__, ret);
         return ret;
     }
     CV_WRAP int method2(int a) { return m_value1 + a + 1; }
