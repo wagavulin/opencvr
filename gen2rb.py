@@ -145,6 +145,7 @@ class FuncInfo:
             "Point"
             "Scalar",
             "Size",
+            "vector_int", "std::vector<int>",
             "vector_Mat",
         ]
         supported_argtypes = [
@@ -157,6 +158,7 @@ class FuncInfo:
             "Point",
             "Scalar",
             "Size",
+            "vector_int",
             "vector_Mat",
         ]
 

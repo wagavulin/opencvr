@@ -34,6 +34,7 @@ void rbPopulateArgumentConversionErrors(const std::string& msg)
     conversionErrorsTLS.push_back(msg);
 }
 
+using vector_int = std::vector<int>;
 using vector_Mat = std::vector<Mat>;
 
 const char* db_get_class_name(VALUE o){
@@ -426,6 +427,19 @@ bool rbopencv_to(VALUE obj, Size& sz){
 }
 
 template<>
+bool rbopencv_to(VALUE obj, vector_int& value){
+    TRACE_PRINTF("[rbopencv_to vector_int]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    long len = rb_array_len(obj);
+    for (long i = 0; i < len; i++) {
+        VALUE value_elem = rb_ary_entry(obj, i);
+        value.push_back(FIX2INT(value_elem));
+    }
+    return true;
+}
+
+template<>
 bool rbopencv_to(VALUE obj, vector_Mat& value){
     TRACE_PRINTF("[rbopencv_to vector_Mat]\n");
     if (TYPE(obj) != T_ARRAY)
@@ -515,6 +529,18 @@ VALUE rbopencv_from(const Point& p){
     VALUE value_x = INT2NUM(p.x);
     VALUE value_y = INT2NUM(p.y);
     VALUE ret = rb_ary_new3(2, value_x, value_y);
+    return ret;
+}
+
+template<>
+VALUE rbopencv_from(const std::vector<int>& value){
+    TRACE_PRINTF("[rbopencv_from std::vector<int>]\n");
+    size_t size = value.size();
+    VALUE ret = rb_ary_new2(size);
+    for (int x : value) {
+        VALUE item = rbopencv_from(x);
+        rb_ary_push(ret, item);
+    }
     return ret;
 }
 
