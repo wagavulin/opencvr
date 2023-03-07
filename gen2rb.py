@@ -95,6 +95,7 @@ class FuncInfo:
         self.namespace:str = namespace
         self.is_static:bool = is_static
         self.variants:list[FuncVariant] = []
+        self.header:str = None
 
     def dump(self, depth):
         indent = "  " * depth
@@ -494,7 +495,7 @@ class RubyWrapperGenerator:
             name = decl[0] # "const cv.Ns1.MyEnum2.MYENUM2_VALUE_A"
             self.add_const(name.replace("const ", "").strip(), decl)
 
-    def add_func(self, decl:list):
+    def add_func(self, decl:list, header:str):
         # decl[0]: "cv.Ns1.Bar.method1"
         namespace, classes, barename = self.split_decl_name(decl[0])
         # namespace: ["cv", "Ns1"], classes_list: ["Bar"], barename: "method1"
@@ -559,6 +560,7 @@ class RubyWrapperGenerator:
             self.classes[classname].constructor = func
         if classname and ispurevirtual:
             self.classes[classname].isinterface = True
+        func.header = header
 
     def gen(self, headers:list[str], out_dir:str):
         fout_inc = open(f"{out_dir}/rbopencv_include.hpp", "w")
@@ -592,7 +594,7 @@ class RubyWrapperGenerator:
                     # name: "enum class cv.Ns1.MyEnum2"
                     self.add_enum(name.rsplit(" ", 1)[1], decl) # arg: "cv.Ns1.MyEnum2"
                 else:
-                    self.add_func(decl)
+                    self.add_func(decl, hdr)
         fout_inc.close()
         processed = dict()
         def process_isalgorithm(classinfo):
@@ -765,8 +767,9 @@ g_logger.close()
 
 with open(f"{dstdir}/support-status.csv", "w") as f:
     for func in g_log_processed_funcs:
+        header_fname = func.header.split("/")[-1] if func.header else ""
         for vi, v in enumerate(func.variants):
             arg_types = [a.tp for a in v.args]
             args_str = ",".join(arg_types)
             is_supported, reason = func.support_statuses[vi]
-            print(f'{is_supported},{func.cname},"{args_str}",{reason}', file=f)
+            print(f'{is_supported},{func.cname},"{args_str}",{reason},{header_fname}', file=f)
