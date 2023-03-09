@@ -164,7 +164,9 @@ class BindTest < Test::Unit::TestCase
     assert_equal(foo.method1(10), 133)
     # overloaded instance method
     assert_equal(foo.method2(10, 1), 134)
-    #foo.method2(10, 2)
+    # constructor with argument
+    foo = CV2::Foo.new(234)
+    assert_equal(foo.method1(1), 235)
     # static method (as class method)
     assert_equal(CV2::Foo::smethod1(10), 20)
     assert_equal(CV2::Foo.smethod1(10), 20)
@@ -184,6 +186,10 @@ class BindTest < Test::Unit::TestCase
     assert_equal(subsubc1.method1(10), 121)
     # function in subsubmodule
     assert_equal(CV2::Ns1::Ns11::bindTest_Ns11(10), 21)
+  end
+
+  def test_class_ex
+    ssc1 = CV2::Ns1::Ns11::SubSubC1.new(222)
   end
 
   def test_enum

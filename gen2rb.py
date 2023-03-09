@@ -129,7 +129,8 @@ class FuncInfo:
     def get_wrapper_prototype(self):
         full_fname = self.get_wrapper_name()
         if self.isconstructor:
-            raise ValueError("[TODO] constructor generation is not supported")
+            wrapper_fname = "cv_" + self.classname + "_init" # "cv_Ns1_Foo_init"
+            return f"static VALUE wrap_{wrapper_fname}(int argc, VALUE *argv, VALUE self)"
         if self.is_static:
             return "static VALUE %s(int argc, VALUE *argv)" % (full_fname)
         return "static VALUE %s(int argc, VALUE *argv, VALUE klass)" % (full_fname)
@@ -357,17 +358,25 @@ class FuncInfo:
 
             # Call C++ API if arguments are ready
             f.write("        if (conv_args_ok) {\n")
-            if not v.rettype == "":
-                f.write(f"            {v.rettype} raw_retval;\n")
-                f.write(f"            raw_retval = ")
+            if self.isconstructor:
+                wrap_struct = f"Wrap_{self.classname}"
+                data_type_instance = f"{self.classname}_type"
+                ctor_cname = self.classname.replace("_", '::')
+                f.write(f"            struct {wrap_struct} *ptr;\n")
+                f.write(f"            TypedData_Get_Struct(self, struct {wrap_struct}, &{data_type_instance}, ptr);\n")
+                args_str = ", ".join(cac_args)
+                f.write(f"            ptr->v = new {ctor_cname}({args_str});\n")
             else:
-                f.write(f"            ")
-            if self.classname and not self.is_static: # call instance method
-                f.write(f"get_{self.classname}(klass)->{self.name}")
-            else:              # call global function
-                f.write(f"{self.cname}")
-            f.write(f"({', '.join(cac_args)});\n")
-
+                if not v.rettype == "":
+                    f.write(f"            {v.rettype} raw_retval;\n")
+                    f.write(f"            raw_retval = ")
+                else:
+                    f.write(f"            ")
+                if self.classname and not self.is_static: # call instance method
+                    f.write(f"get_{self.classname}(klass)->{self.name}")
+                else:              # call global function
+                    f.write(f"{self.cname}")
+                f.write(f"({', '.join(cac_args)});\n")
 
             # Convert the return value(s)
             num_ruby_retvals = len(rh_raw_var_names)
@@ -636,7 +645,7 @@ class RubyWrapperGenerator:
         # gen wrapclass
         with open(f"{out_dir}/rbopencv_wrapclass.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
-                if classinfo.isinterface or classinfo.isalgorithm:
+                if classinfo.isinterface or classinfo.isalgorithm or name == "Algorithm":
                     print(f'skip generating wrapperclass of interface class: {classinfo.cname}', file=g_logger)
                     continue
                 cClass = f"c{name}" # cFoo
@@ -665,16 +674,13 @@ class RubyWrapperGenerator:
                 f.write(f"static VALUE wrap_{name}_alloc(VALUE klass){{\n")
                 f.write(f"    {wrap_struct}* ptr = nullptr;\n")
                 f.write(f"    VALUE ret = TypedData_Make_Struct(klass, {wrap_struct}, &{name}_type, ptr);\n")
-                f.write(f"    ptr->v = new {classinfo.cname}();\n")
                 f.write(f"    return ret;\n")
                 f.write(f"}}\n")
-                f.write(f"static VALUE wrap_{name}_init(VALUE self){{\n")
-                f.write(f"    return Qnil;\n")
-                f.write(f"}}\n\n")
+                f.write(f"static VALUE wrap_cv_{name}_init(int argc, VALUE *argv, VALUE self); // implemented in rbopencv_funcs.hpp\n\n")
         # gen class registration
         with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
-                if classinfo.isinterface or classinfo.isalgorithm:
+                if classinfo.isinterface or classinfo.isalgorithm or name == "Algorithm":
                     print(f'skip generating classregistration for interface class {classinfo.cname}', file=g_logger)
                     continue
                 # name: "Ns1_Bar"
@@ -686,7 +692,7 @@ class RubyWrapperGenerator:
                 f.write(f'    VALUE parent_mod = get_parent_module_by_wname(mCV2, "{classinfo.wname}");\n')
                 f.write(f"    {cClass} = rb_define_class_under(parent_mod, \"{barename}\", rb_cObject);\n")
                 f.write(f"    rb_define_alloc_func({cClass}, wrap_{name}_alloc);\n")
-                f.write(f"    rb_define_private_method({cClass}, \"initialize\", RUBY_METHOD_FUNC(wrap_{name}_init), 0);\n")
+                f.write(f"    rb_define_private_method({cClass}, \"initialize\", RUBY_METHOD_FUNC(wrap_cv_{name}_init), -1);\n")
                 for name, func in classinfo.methods.items():
                     num_supported_variants, _ = func.is_target_function()
                     if num_supported_variants == 0:
@@ -706,15 +712,11 @@ class RubyWrapperGenerator:
                 if ns_name.split(".")[0] != "cv":
                     continue
                 for name, func in sorted(ns.funcs.items()):
-                    if func.isconstructor:
-                        continue
                     funcs.append(func)
             for decl_idx, name, classinfo in classlist1:
                 for name, func in sorted(classinfo.methods.items()):
-                    if func.isconstructor:
-                        continue
                     cls = self.classes[func.classname]
-                    if cls.isinterface or cls.isalgorithm:
+                    if cls.isinterface or cls.isalgorithm or cls.name == "Algorithm":
                         continue
                     funcs.append(func)
             for func in funcs:
