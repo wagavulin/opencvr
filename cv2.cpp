@@ -377,6 +377,36 @@ bool rbopencv_to(VALUE obj, Point& p){
 }
 
 template<>
+bool rbopencv_to(VALUE obj, Rect& r){
+    TRACE_PRINTF("[rbopencv_to Rect]\n");
+    if (TYPE(obj) != T_ARRAY) {
+        fprintf(stderr, "  # elements is not array: 0x%02x\n", TYPE(obj));
+        return false;
+    }
+    long len = rb_array_len(obj);
+    if (len != 4) {
+        fprintf(stderr, "  # elements is not 4: %ld\n", len);
+        return false;
+    }
+    double tmp[4];
+    for (long i = 0; i < 4; i++) {
+        VALUE value_elem = rb_ary_entry(obj, i);
+        int value_type = TYPE(value_elem);
+        if (value_type == T_FLOAT) {
+            tmp[i] = NUM2DBL(value_elem);
+        } else if (value_type == T_FIXNUM) {
+            tmp[i] = FIX2INT(value_elem);
+        }
+    }
+    r.x = tmp[0];
+    r.y = tmp[1];
+    r.width = tmp[2];
+    r.height = tmp[3];
+    TRACE_PRINTF("  %f %f %f %f\n", r.x, r.y, r.width, r.height);
+    return true;
+}
+
+template<>
 bool rbopencv_to(VALUE obj, Scalar& s){
     TRACE_PRINTF("[rbopencv_to Scalar]\n");
     if (TYPE(obj) != T_ARRAY)
@@ -501,6 +531,17 @@ template<>
 VALUE rbopencv_from(const double& value){
     TRACE_PRINTF("[rbopencv_from double]\n");
     return DBL2NUM(value);
+}
+
+template<>
+VALUE rbopencv_from(const Rect& rect){
+    TRACE_PRINTF("[rbopencv_from Rect]\n");
+    VALUE value_x = INT2NUM(rect.x);
+    VALUE value_y = INT2NUM(rect.y);
+    VALUE value_width = INT2NUM(rect.width);
+    VALUE value_height = INT2NUM(rect.height);
+    VALUE ret = rb_ary_new3(4, value_x, value_y, value_width, value_height);
+    return ret;
 }
 
 template<>

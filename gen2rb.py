@@ -144,6 +144,7 @@ class FuncInfo:
             "bool",
             "double",
             "Point"
+            "Rect",
             "Scalar",
             "Size",
             "vector_int", "std::vector<int>",
@@ -157,6 +158,7 @@ class FuncInfo:
             "double",
             "String",
             "Point",
+            "Rect",
             "Scalar",
             "Size",
             "vector_int",
