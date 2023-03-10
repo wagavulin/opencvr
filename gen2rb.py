@@ -147,8 +147,9 @@ class FuncInfo:
             "Rect",
             "Scalar",
             "Size",
-            "vector_int", "std::vector<int>",
             "vector_Mat",
+            "vector_int",
+            "vector_Rect",
         ]
         supported_argtypes = [
             "Mat",
@@ -161,8 +162,9 @@ class FuncInfo:
             "Rect",
             "Scalar",
             "Size",
-            "vector_int",
             "vector_Mat",
+            "vector_int",
+            "vector_Rect",
         ]
 
         num_supported_variants:int = 0

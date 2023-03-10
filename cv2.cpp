@@ -5,6 +5,7 @@
 #include <numo/narray.h>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #if TRACE
@@ -36,6 +37,7 @@ void rbPopulateArgumentConversionErrors(const std::string& msg)
 
 using vector_int = std::vector<int>;
 using vector_Mat = std::vector<Mat>;
+using vector_Rect = std::vector<Rect>;
 
 const char* db_get_class_name(VALUE o){
     VALUE vtmp1 = rb_funcall(o, rb_intern("class"), 0, 0);
@@ -456,32 +458,19 @@ bool rbopencv_to(VALUE obj, Size& sz){
     return true;
 }
 
-template<>
-bool rbopencv_to(VALUE obj, vector_int& value){
-    TRACE_PRINTF("[rbopencv_to vector_int]\n");
+template<typename T>
+bool rbopencv_to(VALUE obj, std::vector<T>& value){
+    TRACE_PRINTF("[rbopencv_to vector_T %s]\n", typeid(T).name());
     if (TYPE(obj) != T_ARRAY)
         return false;
     long len = rb_array_len(obj);
     for (long i = 0; i < len; i++) {
         VALUE value_elem = rb_ary_entry(obj, i);
-        value.push_back(FIX2INT(value_elem));
-    }
-    return true;
-}
-
-template<>
-bool rbopencv_to(VALUE obj, vector_Mat& value){
-    TRACE_PRINTF("[rbopencv_to vector_Mat]\n");
-    if (TYPE(obj) != T_ARRAY)
-        return false;
-    long len = rb_array_len(obj);
-    for (long i = 0; i < len; i++) {
-        VALUE value_elem = rb_ary_entry(obj, i);
-        Mat mat;
-        bool to_ret = rbopencv_to(value_elem, mat);
-        if (!to_ret)
+        T raw_elem;
+        bool ret = rbopencv_to(value_elem, raw_elem);
+        if (!ret)
             return false;
-        value.push_back(mat);
+        value.push_back(raw_elem);
     }
     return true;
 }
@@ -573,25 +562,13 @@ VALUE rbopencv_from(const Point& p){
     return ret;
 }
 
-template<>
-VALUE rbopencv_from(const std::vector<int>& value){
-    TRACE_PRINTF("[rbopencv_from std::vector<int>]\n");
+template<typename T>
+VALUE rbopencv_from(const std::vector<T>& value){
+    TRACE_PRINTF("[rbopencv_from Point %s]\n", typeid(T).name());
     size_t size = value.size();
     VALUE ret = rb_ary_new2(size);
-    for (int x : value) {
+    for (const auto& x : value) {
         VALUE item = rbopencv_from(x);
-        rb_ary_push(ret, item);
-    }
-    return ret;
-}
-
-template<>
-VALUE rbopencv_from(const std::vector<Mat>& value){
-    TRACE_PRINTF("[rbopencv_from std::vector<Mat>]\n");
-    size_t size = value.size();
-    VALUE ret = rb_ary_new2(size);
-    for (const Mat& mat : value) {
-        VALUE item = rbopencv_from(mat);
         rb_ary_push(ret, item);
     }
     return ret;

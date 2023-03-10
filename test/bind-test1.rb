@@ -125,6 +125,7 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2.bindTest_InOut_vector_int([10, 20, 30]), [13, 23, 33])
   #   ret = CV2.bindTest_InOut_vector_Point([[1, 2], [3, 4]])
   #   assert_equal(ret, [[2, 3], [4, 5], [10, 11], [20, 21]])
+    assert_equal(CV2.bindTest_InOut_vector_Rect([[10,20,30,40], [50,60,70,80]]), [[11,22,33,44], [51,62,73,84]])
   end
 
   def test_mat_1
