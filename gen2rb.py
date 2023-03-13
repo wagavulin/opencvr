@@ -9,6 +9,8 @@ import sys
 import hdr_parser
 
 g_logger = open("log-gen2rb.txt", "w")
+g_unsupported_retval_types:dict[str, int] = {}
+g_unsupported_arg_types:dict[str, int] = {}
 g_log_processed_funcs:list["FuncInfo"] = []
 
 def normalize_class_name(name):
@@ -175,11 +177,13 @@ class FuncInfo:
             strs = self.cname.split("::")
             if not v.rettype in supported_rettypes:
                 support_statuses.append((False, f"retval type is not supported: {self.variants[0].rettype}"))
+                g_unsupported_retval_types[v.rettype] = g_unsupported_retval_types.get(v.rettype, 0) + 1
                 continue
             need_continue = False
             for a in v.args:
                 if not a.tp in supported_argtypes:
                     support_statuses.append((False, f"input argument type is not supported: {a.name} {a.tp}"))
+                    g_unsupported_arg_types[a.tp] = g_unsupported_arg_types.get(a.tp, 0) + 1
                     need_continue = True
                     break
                 if a.defval == "":
@@ -781,3 +785,10 @@ with open(f"{dstdir}/support-status.csv", "w") as f:
             args_str = ",".join(arg_types)
             is_supported, reason = func.support_statuses[vi]
             print(f'{is_supported},{func.cname},"{args_str}",{reason},{header_fname}', file=f)
+with open(f"{dstdir}/unsupported-types.txt", "w") as f:
+    print("retval types", file=f)
+    for t, num in g_unsupported_retval_types.items():
+        print(f"  {t} {num}", file=f)
+    print("arg types", file=f)
+    for t, num in g_unsupported_arg_types.items():
+        print(f"  {t} {num}", file=f)
