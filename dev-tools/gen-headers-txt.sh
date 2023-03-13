@@ -6,6 +6,7 @@ supported_headers="$supported_headers opencv2/core.hpp"
 supported_headers="$supported_headers opencv2/imgproc.hpp"
 supported_headers="$supported_headers opencv2/imgcodecs.hpp"
 supported_headers="$supported_headers opencv2/highgui.hpp"
+supported_headers="$supported_headers opencv2/objdetect.hpp"
 
 iflag=`pkg-config --cflags-only-I opencv4`
 inc_dir=${iflag:2}
