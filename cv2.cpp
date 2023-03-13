@@ -564,7 +564,7 @@ VALUE rbopencv_from(const Point& p){
 
 template<typename T>
 VALUE rbopencv_from(const std::vector<T>& value){
-    TRACE_PRINTF("[rbopencv_from Point %s]\n", typeid(T).name());
+    TRACE_PRINTF("[rbopencv_from vector_T %s]\n", typeid(T).name());
     size_t size = value.size();
     VALUE ret = rb_ary_new2(size);
     for (const auto& x : value) {
