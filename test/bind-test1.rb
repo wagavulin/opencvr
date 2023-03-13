@@ -95,8 +95,8 @@ class BindTest < Test::Unit::TestCase
   #   ret = CV2.bindTest_Out_intp()
   #   assert_equal(ret, 10)
     assert_equal(CV2.bindTest_InOut_size_t(10), 20)
-  #   ret = CV2.bindTest_InOut_float(1)
-  #   assert_equal(ret, 1.5)
+    assert_equal(CV2.bindTest_InOut_float(1.0), 1.5)
+    assert_equal(CV2.bindTest_InOut_float(1), 1.5) # float arg should also accept int
   #   ret = CV2.bindTest_InOut_double(1)
   #   assert_equal(ret, 1.5)
   end
@@ -115,10 +115,8 @@ class BindTest < Test::Unit::TestCase
     assert_equal(ret, [110, 90])
     ret = CV2.bindTest_InOut_Point([100, 200])
     assert_equal(ret, [110, 210])
-  #   ret = CV2.bindTest_InOut_Point2f([10.5, 11.5])
-  #   assert_equal(ret, [11.0, 12.0])
-  #   ret = CV2.bindTest_InOut_Point2f([10, 11])
-  #   assert_equal(ret, [10.5, 11.5])
+    assert_equal(CV2.bindTest_InOut_Point2f([10.0, 11.0]), [10.5, 11.5])
+    assert_equal(CV2.bindTest_InOut_Point2f([10, 11]), [10.5, 11.5]) # Point2f arg should also accept Point2i
     assert_equal(CV2.bindTest_InOut_Rect([100, 110, 120, 130]), [110, 130, 150, 170])
   #   ret = CV2.bindTest_InOut_RotatedRect([[100, 200], [10, 20], 30])
   #   assert_equal(ret, [[100.5, 200.5], [10.5, 20.5], 30.5])

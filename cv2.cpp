@@ -360,6 +360,16 @@ bool rbopencv_to(VALUE obj, double& value){
 }
 
 template<>
+bool rbopencv_to(VALUE obj, float& value){
+    TRACE_PRINTF("[rbopencv_to float]\n");
+    double tmp;
+    bool ret = rbopencv_to(obj, tmp);
+    if (ret)
+        value = static_cast<float>(tmp);
+    return ret;
+}
+
+template<>
 bool rbopencv_to(VALUE obj, String& value){
     TRACE_PRINTF("[rbopencv_to String]\n");
     if (TYPE(obj) != RUBY_T_STRING)
@@ -376,6 +386,17 @@ bool rbopencv_to(VALUE obj, Point& p){
     p.x = FIX2INT(rb_ary_entry(obj, 0));
     p.y = FIX2INT(rb_ary_entry(obj, 1));
     return true;
+}
+
+template<>
+bool rbopencv_to(VALUE obj, Point2f& p){
+    TRACE_PRINTF("[rbopencv_to Point2f]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    bool ret = true;
+    ret &= rbopencv_to(rb_ary_entry(obj, 0), p.x);
+    ret &= rbopencv_to(rb_ary_entry(obj, 1), p.y);
+    return ret;
 }
 
 template<>
@@ -523,6 +544,12 @@ VALUE rbopencv_from(const double& value){
 }
 
 template<>
+VALUE rbopencv_from(const float& value){
+    TRACE_PRINTF("[rbopencv_from float]\n");
+    return DBL2NUM(value);
+}
+
+template<>
 VALUE rbopencv_from(const Rect& rect){
     TRACE_PRINTF("[rbopencv_from Rect]\n");
     VALUE value_x = INT2NUM(rect.x);
@@ -558,6 +585,15 @@ VALUE rbopencv_from(const Point& p){
     TRACE_PRINTF("[rbopencv_from Point]\n");
     VALUE value_x = INT2NUM(p.x);
     VALUE value_y = INT2NUM(p.y);
+    VALUE ret = rb_ary_new3(2, value_x, value_y);
+    return ret;
+}
+
+template<>
+VALUE rbopencv_from(const Point2f& p){
+    TRACE_PRINTF("[rbopencv_from Point2f]\n");
+    VALUE value_x = rbopencv_from(p.x);
+    VALUE value_y = rbopencv_from(p.y);
     VALUE ret = rb_ary_new3(2, value_x, value_y);
     return ret;
 }
