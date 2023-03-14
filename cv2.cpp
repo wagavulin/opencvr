@@ -7,12 +7,25 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <cstdio>
+#include <cstdlib>
+#include <cstdarg>
 
-#if TRACE
-#define TRACE_PRINTF printf
-#else
-#define TRACE_PRINTF
-#endif
+static int trace_printf(const char *filename, int line, const char *fmt, ...){
+    const char *s_env = getenv("RBOPENCV_TRACE");
+    if (s_env && atoi(s_env)) {
+        va_list ap;
+        va_start(ap, fmt);
+        int ret = 0;
+        ret += printf("[%s %d] ", filename, line);
+        ret += vprintf(fmt, ap);
+        va_end(ap);
+        return ret;
+    }
+    return 0;
+}
+
+#define TRACE_PRINTF(fmt, ...) trace_printf(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
 using namespace cv;
 
@@ -97,14 +110,14 @@ public:
         narray_view_t* nav = na_get_narray_view_t(view);
 
         UMatData* u = new UMatData(this);
-        TRACE_PRINTF("  u: %p\n", u);
+        //TRACE_PRINTF("  u: %p\n", u);
         u->data = u->origdata = (uchar*)nad->ptr;
         if (!nav->stridx) {
             throw std::runtime_error("[NumpyAllocator::allocate] nav->stridx is NULL");
         }
         for (unsigned char i = 0; i < nad->base.ndim; i++) {
             if (SDX_IS_INDEX(nav->stridx[i])) {
-                TRACE_PRINTF("nav->stridx[%d] is not stride\n", i);
+                //TRACE_PRINTF("nav->stridx[%d] is not stride\n", i);
                 throw std::runtime_error("[NumpyAllocator::allocate] nav->stridx[i] is not stride");
             } else {
                 ssize_t stride = SDX_GET_STRIDE(nav->stridx[i]);
@@ -121,9 +134,9 @@ public:
     }
 
     UMatData* allocate(int dims0, const int* sizes, int type, void* data, size_t* step, AccessFlag flags, UMatUsageFlags usageFlags) const override {
-        TRACE_PRINTF("dims0: %d, type: %d, depth: %d, cn: %d\n", dims0, type, CV_MAT_DEPTH(type), CV_MAT_CN(type));
+        TRACE_PRINTF("[allocate] dims0: %d, type: %d, depth: %d, cn: %d\n", dims0, type, CV_MAT_DEPTH(type), CV_MAT_CN(type));
         for (int i = 0; i < dims0; i++) {
-            TRACE_PRINTF("  sizes[%d]: %d\n", i, sizes[i]);
+            //TRACE_PRINTF("  sizes[%d]: %d\n", i, sizes[i]);
         }
         if (data) {
             throw std::runtime_error("[NumpyAllocator::allocate] data is not NULL");
@@ -151,26 +164,26 @@ public:
         rb_funcall(o, rb_intern("fill"), 1, INT2FIX(3));
 
         cv::UMatData* ret = allocate(o, dims0, sizes, type, step);
-        TRACE_PRINTF("ret: %p\n", ret);
+        //TRACE_PRINTF("ret: %p\n", ret);
         return ret;
     }
 
     bool allocate(UMatData* u, AccessFlag accessFlags, UMatUsageFlags usageFlags) const override {
-        TRACE_PRINTF("\n");
+        TRACE_PRINTF("[allocate]\n");
         return false;
     }
 
     void deallocate(UMatData* u) const override {
-        TRACE_PRINTF("%p\n", u);
+        TRACE_PRINTF("[deallocate] %p\n", u);
         if (!u)
             return;
         CV_Assert(u->urefcount >= 0);
         CV_Assert(u->refcount >= 0);
         if (u->refcount == 0) {
-            TRACE_PRINTF("  refcount == 0; delete %p\n", u);
+            //TRACE_PRINTF("  refcount == 0; delete %p\n", u);
             delete u;
         } else {
-            TRACE_PRINTF("  refcount >= 1\n");
+            //TRACE_PRINTF("  refcount >= 1\n");
         }
     }
 
@@ -187,21 +200,21 @@ static bool rbopencv_to(VALUE obj, T& p){
 
 template<>
 bool rbopencv_to(VALUE o, Mat& m){
-    TRACE_PRINTF("o: %s\n", db_get_class_name(o));
+    TRACE_PRINTF("[rbopencv_to Mat] o: %s\n", db_get_class_name(o));
     bool allowND = true;
     if (NIL_P(o)) {
-        TRACE_PRINTF("  o is NIL\n");
+        //TRACE_PRINTF("  o is NIL\n");
         if (!m.data)
             m.allocator = &g_numpyAllocator;
         return true;
     }
 
     if (TYPE(o) == T_FIXNUM) {
-        TRACE_PRINTF("  o is FIXNUM\n");
+        //TRACE_PRINTF("  o is FIXNUM\n");
         return false;
     }
     if (TYPE(o) == T_FLOAT) {
-        TRACE_PRINTF("  o is \n");
+        //TRACE_PRINTF("  o is \n");
         return false;
     }
 
@@ -228,7 +241,7 @@ bool rbopencv_to(VALUE o, Mat& m){
 
     int ndims = (int)nad->base.ndim;
     if (ndims >= CV_MAX_DIM) {
-        TRACE_PRINTF("dimensionality (=%d) is too high\n", ndims);
+        //TRACE_PRINTF("dimensionality (=%d) is too high\n", ndims);
         return false;
     }
 
@@ -238,12 +251,12 @@ bool rbopencv_to(VALUE o, Mat& m){
     bool ismultichannel = ndims == 3 && nad->base.shape[2] <= CV_CN_MAX;
     VALUE view = rb_funcall(o, rb_intern("view"), 0, 0);
     narray_view_t* nav = na_get_narray_view_t(view);
-    TRACE_PRINTF("  ismultichannel: %d\n", ismultichannel);
+    //TRACE_PRINTF("  ismultichannel: %d\n", ismultichannel);
     for (int i = 0; i < ndims; i++) {
         if (SDX_IS_STRIDE(nav->stridx[i])) {
-            TRACE_PRINTF("  shape[%d]: %ld, stride[%d]: %ld\n", i, nad->base.shape[i], i, SDX_GET_STRIDE(nav->stridx[i]));
+            //TRACE_PRINTF("  shape[%d]: %ld, stride[%d]: %ld\n", i, nad->base.shape[i], i, SDX_GET_STRIDE(nav->stridx[i]));
         } else {
-            TRACE_PRINTF("  shape[%d]: %ld, is not stride -> not supported\n", i, nad->base.shape[i]);
+            //TRACE_PRINTF("  shape[%d]: %ld, is not stride -> not supported\n", i, nad->base.shape[i]);
             return false;
         }
     }
@@ -267,7 +280,7 @@ bool rbopencv_to(VALUE o, Mat& m){
         needcopy = true;
 
     if (needcopy) {
-        TRACE_PRINTF("needcopy case is not supported\n");
+        //TRACE_PRINTF("needcopy case is not supported\n");
         return false;
     }
 
@@ -303,13 +316,13 @@ bool rbopencv_to(VALUE o, Mat& m){
 
     if( ndims > 2 && !allowND )
     {
-        TRACE_PRINTF("has more than 2 dimensions\n");
+        //TRACE_PRINTF("has more than 2 dimensions\n");
         return false;
     }
 
-    TRACE_PRINTF("  ndims: %d, type: %d\n", ndims, type);
+    //TRACE_PRINTF("  ndims: %d, type: %d\n", ndims, type);
     for (int i = 0; i < ndims; i++) {
-        TRACE_PRINTF("  size[%d]: %d, step[%d] %ld\n", i, size[i], i, step[i]);
+        //TRACE_PRINTF("  size[%d]: %d, step[%d] %ld\n", i, size[i], i, step[i]);
     }
     m = Mat(ndims, size, type, nad->ptr, step);
     m.u = g_numpyAllocator.allocate(o, ndims, size, type, step);
@@ -425,7 +438,7 @@ bool rbopencv_to(VALUE obj, Rect& r){
     r.y = tmp[1];
     r.width = tmp[2];
     r.height = tmp[3];
-    TRACE_PRINTF("  %f %f %f %f\n", r.x, r.y, r.width, r.height);
+    //TRACE_PRINTF("  %f %f %f %f\n", r.x, r.y, r.width, r.height);
     return true;
 }
 
@@ -448,7 +461,7 @@ bool rbopencv_to(VALUE obj, Scalar& s){
         } else if (value_type == T_FIXNUM) {
             s[i] = FIX2INT(value_elem);
         }
-        TRACE_PRINTF("  %ld: %f\n", i, s[i]);
+        //TRACE_PRINTF("  %ld: %f\n", i, s[i]);
     }
     return true;
 }
@@ -475,7 +488,7 @@ bool rbopencv_to(VALUE obj, Size& sz){
     }
     sz.width = tmp[0];
     sz.height = tmp[1];
-    TRACE_PRINTF("  %f %f\n", sz.width, sz.height);
+    //TRACE_PRINTF("  %f %f\n", sz.width, sz.height);
     return true;
 }
 
@@ -508,7 +521,7 @@ VALUE rbopencv_from(const cv::Mat& m){
         TRACE_PRINTF("m.data is null\n");
         return Qnil;
     }
-    TRACE_PRINTF("m.u: %p\n", m.u);
+    //TRACE_PRINTF("m.u: %p\n", m.u);
     cv::Mat temp, *p = (cv::Mat*)&m;
     if (!p->u || p->allocator != &g_numpyAllocator) {
         temp.allocator = &g_numpyAllocator;
