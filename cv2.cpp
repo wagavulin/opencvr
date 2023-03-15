@@ -50,6 +50,7 @@ void rbPopulateArgumentConversionErrors(const std::string& msg)
 
 using vector_int = std::vector<int>;
 using vector_Mat = std::vector<Mat>;
+using vector_Point = std::vector<Point>;
 using vector_Rect = std::vector<Rect>;
 
 const char* db_get_class_name(VALUE o){

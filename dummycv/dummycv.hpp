@@ -82,7 +82,11 @@ CV_EXPORTS_W void bindTest_InOut_Point2f(CV_IN_OUT Point2f& a) { a.x += 0.5; a.y
 CV_EXPORTS_W void bindTest_InOut_Rect(CV_IN_OUT Rect& r) { r.x += 10; r.y += 20; r.width += 30; r.height += 40; }
 // CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a);
 CV_EXPORTS_W void bindTest_InOut_vector_int(CV_IN_OUT std::vector<int>& xs) { for (auto& x : xs) { x += 3; } }
-// CV_EXPORTS_W void bindTest_InOut_vector_Point(CV_IN_OUT std::vector<Point>& a);
+CV_EXPORTS_W void bindTest_InOut_vector_Point(CV_IN_OUT std::vector<Point>& a) {
+    Point p1{10, 11}, p2{20, 21};
+    for (Point& p : a) { p.x += 1; p.y += 1; }
+    a.push_back(p1); a.push_back(p2);
+}
 CV_EXPORTS_W void bindTest_InOut_vector_Rect(CV_IN_OUT std::vector<Rect>& rects) {
     for (auto& rect : rects) { rect.x += 1; rect.y += 2; rect.width += 3; rect.height += 4; }
 }

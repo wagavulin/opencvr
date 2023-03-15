@@ -153,6 +153,7 @@ class FuncInfo:
             "Size",
             "vector_Mat",
             "vector_int",
+            "vector_Point",
             "vector_Rect",
         ]
         supported_argtypes = [
@@ -170,6 +171,7 @@ class FuncInfo:
             "Size",
             "vector_Mat",
             "vector_int",
+            "vector_Point",
             "vector_Rect",
         ]
 
