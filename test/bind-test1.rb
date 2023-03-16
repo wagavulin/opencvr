@@ -32,14 +32,11 @@ class BindTest < Test::Unit::TestCase
   end
 
   def test_bindTest3_1
-    ret = CV2.bindTest3(1)
-    assert_equal(ret, 1+1)
+    assert_equal(CV2.bindTest3(1), 1+1)
   end
 
   def test_bindTest4_1
-    ret = CV2.bindTest4(2, [10, 11])
-    assert_equal(ret[0], 12)
-    assert_equal(ret[1], 9)
+    assert_equal(CV2.bindTest4(2, [10, 11]), [12, 9])
   end
 
   # def test_bindTest5_1
@@ -86,8 +83,7 @@ class BindTest < Test::Unit::TestCase
   # end
 
   def test_bind_primitive_types
-    ret = CV2.bindTest_InOut_bool(true)
-    assert_equal(ret, false)
+    assert_equal(CV2.bindTest_InOut_bool(true), false)
   #   ret = CV2.bindTest_InOut_uchar(10)
   #   assert_equal(ret, 20)
   #   ret = CV2.bindTest_InOut_int(10)
@@ -102,8 +98,7 @@ class BindTest < Test::Unit::TestCase
 
   def test_bind_basic_classes
     assert_equal(CV2.bindTest_In_String("hello"), 5)
-    ret = CV2.bindTest_InOut_Scalar([10, 20, 30, 40])
-    assert_equal(ret, [11, 22, 33, 44])
+    assert_equal(CV2.bindTest_InOut_Scalar([10, 20, 30, 40]), [11, 22, 33, 44])
     assert_equal(CV2.bindTest_InOut_Size([100, 200]) ,[110, 210])
     assert_equal(CV2.bindTest_InOut_Size2i([100000000, 200000000]) ,[100000020, 200000020])
     #assert_equal(CV2.bindTest_InOut_Size2l([10000000000, 20000000000]) ,[10000000020, 20000000020])
@@ -111,8 +106,7 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2.bindTest_InOut_Size2f([20, 21]), [20.5, 21.5]) # Size2f arg should also accept int
     assert_equal(CV2.bindTest_Out_Point(100), [110, 90])
     assert_equal(CV2.bindTest_Out_Pointp(100), [111, 89])
-    ret = CV2.bindTest_InOut_Point([100, 200])
-    assert_equal(ret, [110, 210])
+    assert_equal(CV2.bindTest_InOut_Point([100, 200]), [110, 210])
     assert_equal(CV2.bindTest_InOut_Point2f([10.0, 11.0]), [10.5, 11.5])
     assert_equal(CV2.bindTest_InOut_Point2f([10, 11]), [10.5, 11.5]) # Point2f arg should also accept Point2i
     assert_equal(CV2.bindTest_InOut_Rect([100, 110, 120, 130]), [110, 130, 150, 170])
