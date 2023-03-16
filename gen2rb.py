@@ -146,7 +146,7 @@ class FuncInfo:
             "bool",
             "double",
             "float",
-            "Point"
+            "Point",
             "Point2f",
             "Rect",
             "RotatedRect",
