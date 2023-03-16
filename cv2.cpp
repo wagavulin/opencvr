@@ -49,6 +49,8 @@ void rbPopulateArgumentConversionErrors(const std::string& msg)
 }
 
 using vector_int = std::vector<int>;
+using vector_float = std::vector<float>;
+using vector_double = std::vector<double>;
 using vector_Mat = std::vector<Mat>;
 using vector_Point = std::vector<Point>;
 using vector_Rect = std::vector<Rect>;

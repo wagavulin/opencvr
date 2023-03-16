@@ -156,6 +156,8 @@ class FuncInfo:
             "Size2f",
             "vector_Mat",
             "vector_int",
+            "vector_float",
+            "vector_double",
             "vector_Point",
             "vector_Rect",
         ]
@@ -182,6 +184,8 @@ class FuncInfo:
             "Size2f",
             "vector_Mat",
             "vector_int",
+            "vector_float",
+            "vector_double",
             "vector_Point",
             "vector_Rect",
         ]

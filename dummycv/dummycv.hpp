@@ -95,6 +95,8 @@ CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a) {
     a.angle += 0.5;
 }
 CV_EXPORTS_W void bindTest_InOut_vector_int(CV_IN_OUT std::vector<int>& xs) { for (auto& x : xs) { x += 3; } }
+CV_EXPORTS_W void bindTest_InOut_vector_float(CV_IN_OUT std::vector<float>& xs) { for (auto& x : xs) { x += 0.5; } }
+CV_EXPORTS_W void bindTest_InOut_vector_double(CV_IN_OUT std::vector<double>& xs) { for (auto& x : xs) { x += 1.5; } }
 CV_EXPORTS_W void bindTest_InOut_vector_Point(CV_IN_OUT std::vector<Point>& a) {
     Point p1{10, 11}, p2{20, 21};
     for (Point& p : a) { p.x += 1; p.y += 1; }

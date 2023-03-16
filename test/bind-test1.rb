@@ -115,6 +115,8 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2.bindTest_Out_Rectp(), [10, 20, 30, 40])
     assert_equal(CV2.bindTest_InOut_RotatedRect([[100, 200], [10, 20], 30]), [[100.5, 200.5], [10.5, 20.5], 30.5])
     assert_equal(CV2.bindTest_InOut_vector_int([10, 20, 30]), [13, 23, 33])
+    assert_equal(CV2.bindTest_InOut_vector_float([10.0, 20.0, 30]), [10.5, 20.5, 30.5])
+    assert_equal(CV2.bindTest_InOut_vector_double([10.0, 20.0, 30]), [11.5, 21.5, 31.5])
     assert_equal(CV2.bindTest_InOut_vector_Point([[1, 2], [3, 4]]), [[2, 3], [4, 5], [10, 11], [20, 21]])
     assert_equal(CV2.bindTest_InOut_vector_Rect([[10,20,30,40], [50,60,70,80]]), [[11,22,33,44], [51,62,73,84]])
   end
