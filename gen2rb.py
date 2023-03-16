@@ -169,6 +169,7 @@ class FuncInfo:
             "float",
             "String",
             "Point",
+            "Point*",
             "Point2f",
             "Rect",
             "RotatedRect",
@@ -295,7 +296,12 @@ class FuncInfo:
                 else:
                     rvd_raw_types.append(a.tp)
                 rvd_raw_var_names.append(f"raw_{a.name}")
-                rvd_raw_default_values.append(a.defval)
+                if not a.tp[-1] == "*":
+                    # If pointer arg has default value, it's always 0 or nullptr (Is this correct?)
+                    # It should not be used as default value to avoid error (For example, Point raw_point = 0;)
+                    rvd_raw_default_values.append(a.defval)
+                else:
+                    rvd_raw_default_values.append("")
                 if a.inputarg:
                     vvd_names.append(a.name)
                     vvd_value_var_names.append(f"value_{a.name}")

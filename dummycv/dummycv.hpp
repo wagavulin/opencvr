@@ -65,6 +65,7 @@ CV_EXPORTS_W double bindTest_overload(double a, double b) { return a * b; }
 // CV_EXPORTS_W int bindTest_overload2(int a, int b) { return a + b; }
 
 CV_EXPORTS_W void bindTest_Out_Point(int a, CV_OUT Point& pt) { pt.x=a+10; pt.y=a-10; }
+CV_EXPORTS_W void bindTest_Out_Pointp(int a, CV_OUT Point* pt) { pt->x=a+11; pt->y=a-11; }
 // CV_EXPORTS_W void bindTest_InOut_Mat(CV_IN_OUT Mat& a);
 CV_EXPORTS_W void bindTest_InOut_bool(CV_IN_OUT bool& a) { a = !a; }
 // CV_EXPORTS_W void bindTest_InOut_uchar(CV_IN_OUT uchar& a);
@@ -80,6 +81,7 @@ CV_EXPORTS_W void bindTest_InOut_Size2i(CV_IN_OUT Size2i& a) { a.width += 20; a.
 // CV_EXPORTS_W void bindTest_InOut_Size2l(CV_IN_OUT Size2i& a) { a.width += 30; a.height += 30; }
 CV_EXPORTS_W void bindTest_InOut_Size2f(CV_IN_OUT Size2f& a) { a.width += 0.5; a.height += 0.5; }
 CV_EXPORTS_W void bindTest_InOut_Point(CV_IN_OUT Point& a) { a.x+=10; a.y+=10; }
+CV_EXPORTS_W void bindTest_InOut_Pointpdv(CV_OUT Point* pt = 0) { if (pt) { pt->x = 10; pt->y = 20; }} // Point pointer with default value
 CV_EXPORTS_W void bindTest_InOut_Point2f(CV_IN_OUT Point2f& a) { a.x += 0.5; a.y += 0.5; }
 CV_EXPORTS_W void bindTest_InOut_Rect(CV_IN_OUT Rect& r) { r.x += 10; r.y += 20; r.width += 30; r.height += 40; }
 CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a) {

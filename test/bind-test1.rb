@@ -109,8 +109,8 @@ class BindTest < Test::Unit::TestCase
     #assert_equal(CV2.bindTest_InOut_Size2l([10000000000, 20000000000]) ,[10000000020, 20000000020])
     assert_equal(CV2.bindTest_InOut_Size2f([20.5, 21.5]), [21.0, 22.0])
     assert_equal(CV2.bindTest_InOut_Size2f([20, 21]), [20.5, 21.5]) # Size2f arg should also accept int
-    ret = CV2.bindTest_Out_Point(100)
-    assert_equal(ret, [110, 90])
+    assert_equal(CV2.bindTest_Out_Point(100), [110, 90])
+    assert_equal(CV2.bindTest_Out_Pointp(100), [111, 89])
     ret = CV2.bindTest_InOut_Point([100, 200])
     assert_equal(ret, [110, 210])
     assert_equal(CV2.bindTest_InOut_Point2f([10.0, 11.0]), [10.5, 11.5])
