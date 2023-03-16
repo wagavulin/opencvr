@@ -172,6 +172,7 @@ class FuncInfo:
             "Point",
             "Point*",
             "Point2f",
+            "Point2f*",
             "Rect",
             "Rect*",
             "RotatedRect",

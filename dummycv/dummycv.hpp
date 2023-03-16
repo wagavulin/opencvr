@@ -84,6 +84,7 @@ CV_EXPORTS_W void bindTest_InOut_Size2f(CV_IN_OUT Size2f& a) { a.width += 0.5; a
 CV_EXPORTS_W void bindTest_InOut_Point(CV_IN_OUT Point& a) { a.x+=10; a.y+=10; }
 CV_EXPORTS_W void bindTest_InOut_Pointpdv(CV_OUT Point* pt = 0) { if (pt) { pt->x = 10; pt->y = 20; }} // Point pointer with default value
 CV_EXPORTS_W void bindTest_InOut_Point2f(CV_IN_OUT Point2f& a) { a.x += 0.5; a.y += 0.5; }
+CV_EXPORTS_W void bindTest_Out_Point2fp(CV_OUT Point2f* p) { p->x = 0.5; p->y = 1.5; }
 CV_EXPORTS_W void bindTest_InOut_Rect(CV_IN_OUT Rect& r) { r.x += 10; r.y += 20; r.width += 30; r.height += 40; }
 CV_EXPORTS_W void bindTest_Out_Rectp(CV_OUT Rect* r = 0) { r->x = 10; r->y = 20; r->width = 30; r->height = 40; }
 CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a) {
