@@ -468,6 +468,17 @@ bool rbopencv_to(VALUE obj, Scalar& s){
 }
 
 template<>
+bool rbopencv_to(VALUE obj, Size_<float>& sz){
+    TRACE_PRINTF("[rbopencv_to Size_<float>]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    bool ret = true;
+    ret &= rbopencv_to(rb_ary_entry(obj, 0), sz.width);
+    ret &= rbopencv_to(rb_ary_entry(obj, 1), sz.height);
+    return true;
+}
+
+template<>
 bool rbopencv_to(VALUE obj, Size& sz){
     TRACE_PRINTF("[rbopencv_to Size]\n");
     if (TYPE(obj) != T_ARRAY)
@@ -477,19 +488,32 @@ bool rbopencv_to(VALUE obj, Size& sz){
         fprintf(stderr, "  # elements is not 2: %ld\n", len);
         return false;
     }
-    double tmp[2];
+    int tmp_i[2];
     for (long i = 0; i < 2; i++) {
         VALUE value_elem = rb_ary_entry(obj, i);
         int value_type = TYPE(value_elem);
         if (value_type == T_FLOAT) {
-            tmp[i] = NUM2DBL(value_elem);
+            double tmp_d = NUM2DBL(value_elem);
+            tmp_i[i] = static_cast<int>(tmp_d);
         } else if (value_type == T_FIXNUM) {
-            tmp[i] = FIX2INT(value_elem);
+            tmp_i[i] = FIX2INT(value_elem);
         }
     }
-    sz.width = tmp[0];
-    sz.height = tmp[1];
+    sz.width = tmp_i[0];
+    sz.height = tmp_i[1];
     //TRACE_PRINTF("  %f %f\n", sz.width, sz.height);
+    return true;
+}
+
+template<>
+bool rbopencv_to(VALUE obj, RotatedRect& dst){
+    TRACE_PRINTF("[rbopencv_to RotatedRect]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    bool ret = true;
+    ret &= rbopencv_to(rb_ary_entry(obj, 0), dst.center);
+    ret &= rbopencv_to(rb_ary_entry(obj, 1), dst.size);
+    ret &= rbopencv_to(rb_ary_entry(obj, 2), dst.angle);
     return true;
 }
 
@@ -595,6 +619,15 @@ VALUE rbopencv_from(const Size& sz){
 }
 
 template<>
+VALUE rbopencv_from(const Size_<float>& sz){
+    TRACE_PRINTF("[rbopencv_from Size_<float>]\n");
+    VALUE value_width = rbopencv_from(sz.width);
+    VALUE value_height = rbopencv_from(sz.height);
+    VALUE ret = rb_ary_new3(2, value_width, value_height);
+    return ret;
+}
+
+template<>
 VALUE rbopencv_from(const Point& p){
     TRACE_PRINTF("[rbopencv_from Point]\n");
     VALUE value_x = INT2NUM(p.x);
@@ -609,6 +642,16 @@ VALUE rbopencv_from(const Point2f& p){
     VALUE value_x = rbopencv_from(p.x);
     VALUE value_y = rbopencv_from(p.y);
     VALUE ret = rb_ary_new3(2, value_x, value_y);
+    return ret;
+}
+
+template<>
+VALUE rbopencv_from(const RotatedRect& src){
+    TRACE_PRINTF("[rbopencv_from RotatedRect]\n");
+    VALUE value_center = rbopencv_from(src.center);
+    VALUE value_size = rbopencv_from(src.size);
+    VALUE value_angle = rbopencv_from(src.angle);
+    VALUE ret = rb_ary_new3(3, value_center, value_size, value_angle);
     return ret;
 }
 

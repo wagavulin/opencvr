@@ -76,11 +76,19 @@ CV_EXPORTS_W void bindTest_InOut_float(CV_IN_OUT float& a) { a += 0.5; }
 CV_EXPORTS_W int bindTest_In_String(const cv::String& s) { return s.length(); }
 CV_EXPORTS_W void bindTest_InOut_Scalar(CV_IN_OUT Scalar& a) { a[0] += 1; a[1] += 2; a[2] += 3; a[3] += 4; }
 CV_EXPORTS_W void bindTest_InOut_Size(CV_IN_OUT Size& a) { a.width += 10; a.height += 10; }
-// CV_EXPORTS_W void bindTest_InOut_Size2f(CV_IN_OUT Size2f& a);
+CV_EXPORTS_W void bindTest_InOut_Size2i(CV_IN_OUT Size2i& a) { a.width += 20; a.height += 20; }
+// CV_EXPORTS_W void bindTest_InOut_Size2l(CV_IN_OUT Size2i& a) { a.width += 30; a.height += 30; }
+CV_EXPORTS_W void bindTest_InOut_Size2f(CV_IN_OUT Size2f& a) { a.width += 0.5; a.height += 0.5; }
 CV_EXPORTS_W void bindTest_InOut_Point(CV_IN_OUT Point& a) { a.x+=10; a.y+=10; }
 CV_EXPORTS_W void bindTest_InOut_Point2f(CV_IN_OUT Point2f& a) { a.x += 0.5; a.y += 0.5; }
 CV_EXPORTS_W void bindTest_InOut_Rect(CV_IN_OUT Rect& r) { r.x += 10; r.y += 20; r.width += 30; r.height += 40; }
-// CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a);
+CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a) {
+    a.center.x += 0.5;
+    a.center.y += 0.5;
+    a.size.width += 0.5;
+    a.size.height += 0.5;
+    a.angle += 0.5;
+}
 CV_EXPORTS_W void bindTest_InOut_vector_int(CV_IN_OUT std::vector<int>& xs) { for (auto& x : xs) { x += 3; } }
 CV_EXPORTS_W void bindTest_InOut_vector_Point(CV_IN_OUT std::vector<Point>& a) {
     Point p1{10, 11}, p2{20, 21};
