@@ -166,6 +166,7 @@ class FuncInfo:
             "size_t",
             "bool",
             "double",
+            "double*",
             "float",
             "String",
             "Point",
