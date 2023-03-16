@@ -92,8 +92,7 @@ class BindTest < Test::Unit::TestCase
   #   assert_equal(ret, 20)
   #   ret = CV2.bindTest_InOut_int(10)
   #   assert_equal(ret, 20)
-  #   ret = CV2.bindTest_Out_intp()
-  #   assert_equal(ret, 10)
+    assert_equal(CV2.bindTest_Out_intp(), 10)
     assert_equal(CV2.bindTest_InOut_size_t(10), 20)
     assert_equal(CV2.bindTest_InOut_float(1.0), 1.5)
     assert_equal(CV2.bindTest_InOut_float(1), 1.5) # float arg should also accept int

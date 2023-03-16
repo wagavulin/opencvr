@@ -69,7 +69,7 @@ CV_EXPORTS_W void bindTest_Out_Point(int a, CV_OUT Point& pt) { pt.x=a+10; pt.y=
 CV_EXPORTS_W void bindTest_InOut_bool(CV_IN_OUT bool& a) { a = !a; }
 // CV_EXPORTS_W void bindTest_InOut_uchar(CV_IN_OUT uchar& a);
 // CV_EXPORTS_W void bindTest_InOut_int(CV_IN_OUT int& a);
-// CV_EXPORTS_W void bindTest_Out_intp(CV_OUT int* a);
+CV_EXPORTS_W void bindTest_Out_intp(CV_OUT int* a) { *a = 10; }
 CV_EXPORTS_W void bindTest_InOut_size_t(CV_IN_OUT size_t& a) { a += 10; }
 CV_EXPORTS_W void bindTest_InOut_float(CV_IN_OUT float& a) { a += 0.5; }
 // CV_EXPORTS_W void bindTest_InOut_double(CV_IN_OUT double& a);

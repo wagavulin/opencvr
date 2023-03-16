@@ -162,6 +162,7 @@ class FuncInfo:
         supported_argtypes = [
             "Mat",
             "int",
+            "int*",
             "size_t",
             "bool",
             "double",
