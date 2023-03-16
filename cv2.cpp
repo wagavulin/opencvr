@@ -51,6 +51,8 @@ void rbPopulateArgumentConversionErrors(const std::string& msg)
 using vector_int = std::vector<int>;
 using vector_float = std::vector<float>;
 using vector_double = std::vector<double>;
+using vector_String = std::vector<std::string>;
+using vector_string = std::vector<std::string>;
 using vector_Mat = std::vector<Mat>;
 using vector_Point = std::vector<Point>;
 using vector_Rect = std::vector<Rect>;
@@ -589,6 +591,13 @@ template<>
 VALUE rbopencv_from(const float& value){
     TRACE_PRINTF("[rbopencv_from float]\n");
     return DBL2NUM(value);
+}
+
+template<>
+VALUE rbopencv_from(const String& value){
+    TRACE_PRINTF("[rbopencv_from String]\n");
+    VALUE ret = rb_str_new_cstr(value.c_str());
+    return ret;
 }
 
 template<>

@@ -75,7 +75,13 @@ CV_EXPORTS_W void bindTest_InOut_size_t(CV_IN_OUT size_t& a) { a += 10; }
 CV_EXPORTS_W void bindTest_InOut_float(CV_IN_OUT float& a) { a += 0.5; }
 CV_EXPORTS_W void bindTest_InOut_double(CV_IN_OUT double& a) { a += 1.5; }
 CV_EXPORTS_W void bindTest_Out_doublep(CV_OUT double* a) { *a = 2.5; }
-CV_EXPORTS_W int bindTest_In_String(const cv::String& s) { return s.length(); }
+CV_EXPORTS_W int bindTest_In_String(const String& s) { return s.length(); }
+CV_EXPORTS_W int bindTest_In_cvString(const cv::String& s) { return s.length(); }
+CV_EXPORTS_W int bindTest_In_stdstring(const std::string& s) { return s.length(); }
+CV_EXPORTS_W String bindTest_Out_String() { return "aa"; }
+CV_EXPORTS_W cv::String bindTest_Out_cvString() { return "bb"; }
+CV_EXPORTS_W std::string bindTest_Out_stdstring() { return "cc"; }
+CV_EXPORTS_W String bindTest_InOut_String(const String& s) { return s + "x"; }
 CV_EXPORTS_W void bindTest_InOut_Scalar(CV_IN_OUT Scalar& a) { a[0] += 1; a[1] += 2; a[2] += 3; a[3] += 4; }
 CV_EXPORTS_W void bindTest_InOut_Size(CV_IN_OUT Size& a) { a.width += 10; a.height += 10; }
 CV_EXPORTS_W void bindTest_InOut_Size2i(CV_IN_OUT Size2i& a) { a.width += 20; a.height += 20; }
@@ -97,6 +103,9 @@ CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a) {
 CV_EXPORTS_W void bindTest_InOut_vector_int(CV_IN_OUT std::vector<int>& xs) { for (auto& x : xs) { x += 3; } }
 CV_EXPORTS_W void bindTest_InOut_vector_float(CV_IN_OUT std::vector<float>& xs) { for (auto& x : xs) { x += 0.5; } }
 CV_EXPORTS_W void bindTest_InOut_vector_double(CV_IN_OUT std::vector<double>& xs) { for (auto& x : xs) { x += 1.5; } }
+CV_EXPORTS_W void bindTest_InOut_vector_String(CV_IN_OUT std::vector<String>& ss) { for (auto& s : ss) { s += "x"; } }
+CV_EXPORTS_W void bindTest_InOut_vector_cvString(CV_IN_OUT std::vector<cv::String>& ss) { for (auto& s : ss) { s += "y"; } }
+CV_EXPORTS_W void bindTest_InOut_vector_stdstring(CV_IN_OUT std::vector<std::string>& ss) { for (auto& s : ss) { s += "z"; } }
 CV_EXPORTS_W void bindTest_InOut_vector_Point(CV_IN_OUT std::vector<Point>& a) {
     Point p1{10, 11}, p2{20, 21};
     for (Point& p : a) { p.x += 1; p.y += 1; }

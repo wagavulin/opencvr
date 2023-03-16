@@ -24,6 +24,8 @@ def handle_ptr(tp:str) -> str:
 class ArgInfo:
     def __init__(self, arg_tuple:list):
         self.tp:str = handle_ptr(arg_tuple[0]) # type
+        if self.tp == "string":
+            self.tp = "std::string"
         self.name:str = arg_tuple[1]           # name
         self.defval = arg_tuple[2]             # default value
         self.isarray:bool = False
@@ -146,18 +148,19 @@ class FuncInfo:
             "bool",
             "double",
             "float",
+            "String", "cv::String", "std::string",
             "Point",
             "Point2f",
             "Rect",
             "RotatedRect",
             "Scalar",
-            "Size",
-            "Size2i",
+            "Size", "Size2i",
             "Size2f",
             "vector_Mat",
             "vector_int",
             "vector_float",
             "vector_double",
+            "vector_String", "vector_string",
             "vector_Point",
             "vector_Rect",
         ]
@@ -170,7 +173,7 @@ class FuncInfo:
             "double",
             "double*",
             "float",
-            "String",
+            "String", "std::string",
             "Point",
             "Point*",
             "Point2f",
@@ -179,13 +182,13 @@ class FuncInfo:
             "Rect*",
             "RotatedRect",
             "Scalar",
-            "Size",
-            "Size2i",
+            "Size", "Size2i",
             "Size2f",
             "vector_Mat",
             "vector_int",
             "vector_float",
             "vector_double",
+            "vector_String", "vector_string",
             "vector_Point",
             "vector_Rect",
             "vector_vector_int",

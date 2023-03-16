@@ -98,7 +98,13 @@ class BindTest < Test::Unit::TestCase
   end
 
   def test_bind_basic_classes
-    assert_equal(CV2.bindTest_In_String("hello"), 5)
+    assert_equal(CV2.bindTest_In_String("abc"), 3)
+    assert_equal(CV2.bindTest_In_cvString("abcd"), 4)
+    assert_equal(CV2.bindTest_In_stdstring("abcde"), 5)
+    assert_equal(CV2.bindTest_Out_String(), "aa")
+    assert_equal(CV2.bindTest_Out_cvString(), "bb")
+    assert_equal(CV2.bindTest_Out_stdstring(), "cc")
+    assert_equal(CV2.bindTest_InOut_String("foo"), "foox")
     assert_equal(CV2.bindTest_InOut_Scalar([10, 20, 30, 40]), [11, 22, 33, 44])
     assert_equal(CV2.bindTest_InOut_Size([100, 200]) ,[110, 210])
     assert_equal(CV2.bindTest_InOut_Size2i([100000000, 200000000]) ,[100000020, 200000020])
@@ -117,6 +123,9 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2.bindTest_InOut_vector_int([10, 20, 30]), [13, 23, 33])
     assert_equal(CV2.bindTest_InOut_vector_float([10.0, 20.0, 30]), [10.5, 20.5, 30.5])
     assert_equal(CV2.bindTest_InOut_vector_double([10.0, 20.0, 30]), [11.5, 21.5, 31.5])
+    assert_equal(CV2.bindTest_InOut_vector_String(["foo", "bar"]), ["foox", "barx"])
+    assert_equal(CV2.bindTest_InOut_vector_cvString(["foo", "bar"]), ["fooy", "bary"])
+    assert_equal(CV2.bindTest_InOut_vector_stdstring(["foo", "bar"]), ["fooz", "barz"])
     assert_equal(CV2.bindTest_InOut_vector_Point([[1, 2], [3, 4]]), [[2, 3], [4, 5], [10, 11], [20, 21]])
     assert_equal(CV2.bindTest_InOut_vector_Rect([[10,20,30,40], [50,60,70,80]]), [[11,22,33,44], [51,62,73,84]])
     assert_equal(CV2.bindTest_InOut_vector_vector_int([[10, 20],[30, 40]]), [[11, 21], [31, 41]])
