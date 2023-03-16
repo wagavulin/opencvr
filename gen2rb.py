@@ -188,6 +188,8 @@ class FuncInfo:
             "vector_double",
             "vector_Point",
             "vector_Rect",
+            "vector_vector_int",
+            "vector_vector_Point2f",
         ]
 
         num_supported_variants:int = 0

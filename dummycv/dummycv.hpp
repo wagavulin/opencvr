@@ -105,6 +105,12 @@ CV_EXPORTS_W void bindTest_InOut_vector_Point(CV_IN_OUT std::vector<Point>& a) {
 CV_EXPORTS_W void bindTest_InOut_vector_Rect(CV_IN_OUT std::vector<Rect>& rects) {
     for (auto& rect : rects) { rect.x += 1; rect.y += 2; rect.width += 3; rect.height += 4; }
 }
+CV_EXPORTS_W void bindTest_InOut_vector_vector_int(CV_IN_OUT std::vector<std::vector<int>>& xss) {
+    for (auto& xs : xss) { for (auto& x : xs) { x += 1; } }
+}
+CV_EXPORTS_W void bindTest_InOut_vector_vector_Point2f(CV_IN_OUT std::vector<std::vector<Point2f>>& pss) {
+    for (auto& ps : pss) { for (auto& p : ps) { p.x += 1; p.y += 2; } }
+}
 
 // enum
 enum MyEnum1 {

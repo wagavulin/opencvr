@@ -54,6 +54,8 @@ using vector_double = std::vector<double>;
 using vector_Mat = std::vector<Mat>;
 using vector_Point = std::vector<Point>;
 using vector_Rect = std::vector<Rect>;
+using vector_vector_int = std::vector<std::vector<int>>;
+using vector_vector_Point2f = std::vector<std::vector<Point2f>>;
 
 const char* db_get_class_name(VALUE o){
     VALUE vtmp1 = rb_funcall(o, rb_intern("class"), 0, 0);
