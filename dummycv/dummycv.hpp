@@ -3,14 +3,24 @@
 
 #include <opencv2/core/types.hpp>
 #include <cstdio>
+#include <cstdlib>
+#include <cstdarg>
 
-#if TRACE
-#define PRINT_FUNC() fprintf(stderr, "[%s]\n", __func__)
-#define PRINT_CXXFUNC() fprintf(stderr, "[CXX %s]\n", __func__)
-#else
-#define PRINT_FUNC()
-#define PRINT_CXXFUNC()
-#endif
+static int dcv_trace_printf(const char *filename, int line, const char *fmt, ...){
+    const char *s_env = getenv("RBOPENCV_TRACE");
+    if (s_env && atoi(s_env)) {
+        va_list ap;
+        va_start(ap, fmt);
+        int ret = 0;
+        ret += printf("[%s %d] ", filename, line);
+        ret += vprintf(fmt, ap);
+        va_end(ap);
+        return ret;
+    }
+    return 0;
+}
+
+#define DCV_TRACE_PRINTF(fmt, ...) dcv_trace_printf(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
 // Copied from opencv/modules/core/include/opencv2/core/cvdef.h
 #ifndef CV_EXPORTS
@@ -132,14 +142,22 @@ enum MyEnum1 {
 class CV_EXPORTS_W Foo {
 public:
     CV_WRAP static int smethod1(int a) { return a + 10; }
-    CV_WRAP Foo() { PRINT_CXXFUNC(); }
-    CV_WRAP Foo(int value1) : m_value1(value1) { PRINT_CXXFUNC(); }
-    ~Foo() { PRINT_CXXFUNC(); }
+    CV_WRAP Foo() { DCV_TRACE_PRINTF("[%s]\n", __func__); }
+    CV_WRAP Foo(int value1) : m_value1(value1) { DCV_TRACE_PRINTF("[%s]\n", __func__); }
+    ~Foo() { DCV_TRACE_PRINTF("[%s]\n", __func__); }
     CV_WRAP int method1(int a) { return m_value1 + a; }
     CV_WRAP int method2(int a) { return m_value1 + a + 1; }
     CV_WRAP int method2(int a, int b) { return m_value1 + a + b; }
     int m_value1{123};
 };
+class CV_EXPORTS_W Fizz {
+public:
+    CV_WRAP Fizz(int value1) : m_value1(value1) { DCV_TRACE_PRINTF("[%s]\n", __func__); }
+    ~Fizz() { DCV_TRACE_PRINTF("[%s]\n", __func__); }
+    CV_WRAP int method1() { return m_value1; }
+    int m_value1{333};
+};
+CV_EXPORTS_W Ptr<Fizz> createFizz() { auto p = std::make_shared<Fizz>(444); return p; }
 
 // class CV_EXPORTS_W Algorithm {
 // public:
@@ -179,10 +197,12 @@ public:
     CV_WRAP static int smethod1(int a) { return a + 20; }
     CV_WRAP SubSubC1() {}
     CV_WRAP SubSubC1(int v1) : m_value1(v1) {}
+    CV_WRAP ~SubSubC1() { printf("[%s]\n", __func__); }
     CV_WRAP int method1(int a) { return a + m_value1; }
     CV_WRAP int method1(int a, int b) { return a + b + m_value1; }
     int m_value1{111};
 };
+//CV_EXPORTS_W Ptr<SubSubC1> createSubSubC1() { auto p = std::make_shared<SubSubC1>(); p->m_value1 = 222; return p; }
 } // namespace Ns11
 } // namespace Ns1
 } // namespace cv
