@@ -164,6 +164,7 @@ class FuncInfo:
             "vector_Point",
             "vector_Rect",
             "Ptr<Fizz>",
+            "Ptr<SubSubI2>",
             "Ptr<CLAHE>",
         ]
         supported_argtypes = [

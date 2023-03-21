@@ -202,6 +202,22 @@ public:
     CV_WRAP int method1(int a, int b) { return a + b + m_value1; }
     int m_value1{111};
 };
+class CV_EXPORTS_W SubSubI2 {
+public:
+    CV_WRAP virtual int method1() = 0;
+};
+class SubSubC2 : public SubSubI2 {
+public:
+    SubSubC2(int value1) : m_value1(value1) { DCV_TRACE_PRINTF("[%s]\n", __func__); }
+    ~SubSubC2() { DCV_TRACE_PRINTF("[%s]\n", __func__); }
+    int method1() override { return m_value1; }
+    int m_value1{1000};
+};
+CV_EXPORTS_W Ptr<SubSubI2> createSubSubI2() {
+    Ptr<SubSubI2> p{new SubSubC2(2000)};
+    return p;
+}
+
 //CV_EXPORTS_W Ptr<SubSubC1> createSubSubC1() { auto p = std::make_shared<SubSubC1>(); p->m_value1 = 222; return p; }
 } // namespace Ns11
 } // namespace Ns1

@@ -189,6 +189,8 @@ class BindTest < Test::Unit::TestCase
   def test_shared_ptr_retval
     fizz = CV2::createFizz()
     assert_equal(fizz.method1(), 444)
+    ssi2 = CV2::Ns1::Ns11::createSubSubI2();
+    assert_equal(ssi2.method1(), 2000)
   end
 
   def test_submodule
