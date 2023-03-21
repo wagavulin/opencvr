@@ -197,7 +197,7 @@ public:
     CV_WRAP static int smethod1(int a) { return a + 20; }
     CV_WRAP SubSubC1() {}
     CV_WRAP SubSubC1(int v1) : m_value1(v1) {}
-    CV_WRAP ~SubSubC1() { printf("[%s]\n", __func__); }
+    CV_WRAP ~SubSubC1() { DCV_TRACE_PRINTF("[%s]\n", __func__); }
     CV_WRAP int method1(int a) { return a + m_value1; }
     CV_WRAP int method1(int a, int b) { return a + b + m_value1; }
     int m_value1{111};
@@ -218,7 +218,6 @@ CV_EXPORTS_W Ptr<SubSubI2> createSubSubI2() {
     return p;
 }
 
-//CV_EXPORTS_W Ptr<SubSubC1> createSubSubC1() { auto p = std::make_shared<SubSubC1>(); p->m_value1 = 222; return p; }
 } // namespace Ns11
 } // namespace Ns1
 } // namespace cv
