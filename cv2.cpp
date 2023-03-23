@@ -421,6 +421,17 @@ bool rbopencv_to(VALUE obj, Point2f& p){
 }
 
 template<>
+bool rbopencv_to(VALUE obj, Point2d& p){
+    TRACE_PRINTF("[rbopencv_to Point2d]\n");
+    if (TYPE(obj) != T_ARRAY)
+        return false;
+    bool ret = true;
+    ret &= rbopencv_to(rb_ary_entry(obj, 0), p.x);
+    ret &= rbopencv_to(rb_ary_entry(obj, 1), p.y);
+    return ret;
+}
+
+template<>
 bool rbopencv_to(VALUE obj, Rect& r){
     TRACE_PRINTF("[rbopencv_to Rect]\n");
     if (TYPE(obj) != T_ARRAY) {
@@ -653,6 +664,15 @@ VALUE rbopencv_from(const Point& p){
 template<>
 VALUE rbopencv_from(const Point2f& p){
     TRACE_PRINTF("[rbopencv_from Point2f]\n");
+    VALUE value_x = rbopencv_from(p.x);
+    VALUE value_y = rbopencv_from(p.y);
+    VALUE ret = rb_ary_new3(2, value_x, value_y);
+    return ret;
+}
+
+template<>
+VALUE rbopencv_from(const Point2d& p){
+    TRACE_PRINTF("[rbopencv_from Point2d]\n");
     VALUE value_x = rbopencv_from(p.x);
     VALUE value_y = rbopencv_from(p.y);
     VALUE ret = rb_ary_new3(2, value_x, value_y);
