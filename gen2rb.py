@@ -166,6 +166,7 @@ class FuncInfo:
             "Ptr<Fizz>",
             "Ptr<SubSubI2>",
             "Ptr<CLAHE>",
+            "Ptr<LineSegmentDetector>",
         ]
         supported_argtypes = [
             "Mat",
