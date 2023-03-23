@@ -55,6 +55,7 @@ using vector_String = std::vector<std::string>;
 using vector_string = std::vector<std::string>;
 using vector_Mat = std::vector<Mat>;
 using vector_Point = std::vector<Point>;
+using vector_Point2f = std::vector<Point2f>;
 using vector_Rect = std::vector<Rect>;
 using vector_vector_int = std::vector<std::vector<int>>;
 using vector_vector_Point2f = std::vector<std::vector<Point2f>>;

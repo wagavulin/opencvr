@@ -127,6 +127,7 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2.bindTest_InOut_vector_cvString(["foo", "bar"]), ["fooy", "bary"])
     assert_equal(CV2.bindTest_InOut_vector_stdstring(["foo", "bar"]), ["fooz", "barz"])
     assert_equal(CV2.bindTest_InOut_vector_Point([[1, 2], [3, 4]]), [[2, 3], [4, 5], [10, 11], [20, 21]])
+    assert_equal(CV2.bindTest_InOut_vector_Point2f([[1, 2], [3, 4]]), [[1.5, 2.5], [3.5, 4.5], [10.5, 11.5], [20.5, 21.5]])
     assert_equal(CV2.bindTest_InOut_vector_Rect([[10,20,30,40], [50,60,70,80]]), [[11,22,33,44], [51,62,73,84]])
     assert_equal(CV2.bindTest_InOut_vector_vector_int([[10, 20],[30, 40]]), [[11, 21], [31, 41]])
     assert_equal(CV2.bindTest_InOut_vector_vector_Point2f([[[10, 20],[30, 40]], [[50, 60], [70, 80]]]), [[[11, 22],[31, 42]], [[51, 62], [71, 82]]])

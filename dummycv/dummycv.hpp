@@ -121,6 +121,11 @@ CV_EXPORTS_W void bindTest_InOut_vector_Point(CV_IN_OUT std::vector<Point>& a) {
     for (Point& p : a) { p.x += 1; p.y += 1; }
     a.push_back(p1); a.push_back(p2);
 }
+CV_EXPORTS_W void bindTest_InOut_vector_Point2f(CV_IN_OUT std::vector<Point2f>& a) {
+    Point2f p1{10.5, 11.5}, p2{20.5, 21.5};
+    for (Point2f& p : a) { p.x += 0.5; p.y += 0.5; }
+    a.push_back(p1); a.push_back(p2);
+}
 CV_EXPORTS_W void bindTest_InOut_vector_Rect(CV_IN_OUT std::vector<Rect>& rects) {
     for (auto& rect : rects) { rect.x += 1; rect.y += 2; rect.width += 3; rect.height += 4; }
 }
