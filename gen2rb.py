@@ -165,10 +165,6 @@ class FuncInfo:
             "vector_Point",
             "vector_Point2f",
             "vector_Rect",
-            "Ptr<Fizz>",
-            "Ptr<SubSubI2>",
-            "Ptr<CLAHE>",
-            "Ptr<LineSegmentDetector>",
         ]
         supported_argtypes = [
             "Mat",
@@ -202,6 +198,12 @@ class FuncInfo:
             "vector_vector_int",
             "vector_vector_Point2f",
         ]
+        def is_supported_rettype(rettype:str):
+            if rettype in supported_rettypes:
+                return True
+            if rettype.startswith("Ptr<"):
+                return True
+            return False
 
         num_supported_variants:int = 0
         support_statuses:list[tuple[bool, str]] = []
@@ -209,7 +211,7 @@ class FuncInfo:
             num_mandatory_args = 0
             num_optional_args = 0
             strs = self.cname.split("::")
-            if not v.rettype in supported_rettypes:
+            if not is_supported_rettype(v.rettype):
                 support_statuses.append((False, f"retval type is not supported: {self.variants[0].rettype}"))
                 g_unsupported_retval_types[v.rettype] = g_unsupported_retval_types.get(v.rettype, 0) + 1
                 continue
