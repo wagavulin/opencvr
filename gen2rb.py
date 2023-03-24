@@ -142,7 +142,7 @@ class FuncInfo:
     def is_target_function(self) -> tuple[int, list[tuple[bool, str]]]:
         supported_rettypes = [
             "", # void
-            "Mat",
+            "Mat", "cv::Mat",
             "int",
             "size_t",
             "bool",
