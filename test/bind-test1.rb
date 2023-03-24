@@ -135,6 +135,14 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2.bindTest_InOut_vector_vector_Point2f([[[10, 20],[30, 40]], [[50, 60], [70, 80]]]), [[[11, 22],[31, 42]], [[51, 62], [71, 82]]])
   end
 
+  def test_mat_inout
+    img = Numo::UInt8.zeros(200, 300, 3)
+    img2 = CV2.bindTest_InOut_Mat(img)
+    assert_equal(img2.shape[0], 200)
+    img3 = CV2.bindTest_InOut_cvMat(img)
+    assert_equal(img2.shape[1], 300)
+  end
+
   def test_mat_1
   #   m1 = CV2.imread(__dir__ + "/images/200x200bgrw.png")
   #   c = m1.at(50, 50)

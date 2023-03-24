@@ -76,7 +76,8 @@ CV_EXPORTS_W double bindTest_overload(double a, double b) { return a * b; }
 
 CV_EXPORTS_W void bindTest_Out_Point(int a, CV_OUT Point& pt) { pt.x=a+10; pt.y=a-10; }
 CV_EXPORTS_W void bindTest_Out_Pointp(int a, CV_OUT Point* pt) { pt->x=a+11; pt->y=a-11; }
-// CV_EXPORTS_W void bindTest_InOut_Mat(CV_IN_OUT Mat& a);
+CV_EXPORTS_W void bindTest_InOut_Mat(CV_IN_OUT Mat&) {}
+CV_EXPORTS_W void bindTest_InOut_cvMat(CV_IN_OUT cv::Mat&) {}
 CV_EXPORTS_W void bindTest_InOut_bool(CV_IN_OUT bool& a) { a = !a; }
 // CV_EXPORTS_W void bindTest_InOut_uchar(CV_IN_OUT uchar& a);
 // CV_EXPORTS_W void bindTest_InOut_int(CV_IN_OUT int& a);
