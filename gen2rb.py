@@ -13,6 +13,14 @@ g_unsupported_retval_types:dict[str, int] = {}
 g_unsupported_arg_types:dict[str, int] = {}
 g_log_processed_funcs:list["FuncInfo"] = []
 
+# "aa_bb_cc" => "Aa_Bb_cc"
+# Last element (=class name) is kept unchanged
+def to_camel_wname(wname):
+    strs = wname.split("_")
+    cap_strs = [s.capitalize() for s in strs[:-1]]
+    cap_strs.append(strs[-1])
+    return "_".join(cap_strs)
+
 def normalize_class_name(name):
     return re.sub(r"^cv\.", "", name).replace(".", "_")
 
@@ -755,8 +763,9 @@ class RubyWrapperGenerator:
                 cClass = f"c{name}" # cNs1_Bar
                 wrap_struct = f" struct Wrap_{name}" # struct Wrap_Ns1_Bar
                 classtype = f"{name}_type"
+                camel_wname = to_camel_wname(classinfo.wname) # "dnn_Dict" => "Dnn_Dict"
                 f.write(f"{{\n")
-                f.write(f'    VALUE parent_mod = get_parent_module_by_wname(mCV2, "{classinfo.wname}");\n')
+                f.write(f'    VALUE parent_mod = get_parent_module_by_wname(mCV2, "{camel_wname}");\n')
                 f.write(f"    {cClass} = rb_define_class_under(parent_mod, \"{barename}\", rb_cObject);\n")
                 f.write(f"    rb_define_alloc_func({cClass}, wrap_{name}_alloc);\n")
                 if as_shared_ptr:
@@ -832,7 +841,7 @@ with open(headers_txt) as f:
         line = line.strip()
         if line.startswith("#"):
             continue
-        headers.append(line)
+        headers.append(line.split("#")[0].strip())
 dstdir = "./autogen"
 os.makedirs(dstdir, exist_ok=True)
 generator = RubyWrapperGenerator()
