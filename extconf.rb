@@ -17,7 +17,6 @@ if !opencv4_ldflags.empty?
   $LDFLAGS += " -Wl,-rpath,'#{opencv4_libdir}'"
 end
 $LDFLAGS += " -L./dummycv -Wl,-rpath,'$$ORIGIN/dummycv'"
-pp $LDFLAGS
 opencv4_libs = `pkg-config --libs-only-l opencv4`.chomp
 $libs = opencv4_libs + " -ldummycv"
 create_makefile('cv2')
