@@ -216,7 +216,7 @@ public:
 class SubSubC2 : public SubSubI2 {
 public:
     SubSubC2(int value1) : m_value1(value1) { DCV_TRACE_PRINTF("[%s]\n", __func__); }
-    ~SubSubC2() { DCV_TRACE_PRINTF("[%s]\n", __func__); }
+    virtual ~SubSubC2() { DCV_TRACE_PRINTF("[%s]\n", __func__); }
     int method1() override { return m_value1; }
     int m_value1{1000};
 };

@@ -4,7 +4,7 @@ OBJS := $(SRCS:%.cpp=%.o)
 DEPS := $(SRCS:%.cpp=%.d)
 
 CXX := g++
-CXXFLAGS := -g -fPIC -Wall -Wextra
+CXXFLAGS := -std=c++14 -g -fPIC -Wall -Wextra
 CPPFLAGS := $(shell pkg-config --cflags-only-I opencv4)
 LDFLAGS :=
 LIBS :=
