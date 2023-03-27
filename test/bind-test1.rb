@@ -54,6 +54,13 @@ class BindTest < Test::Unit::TestCase
   #   assert_equal(ret[2], 23)
   # end
 
+  def test_bindTest7 # optional and default value
+    assert_equal(CV2.bindTest7(1), (1+2)*3)
+    assert_equal(CV2.bindTest7(1, 3), (1+3)*3)
+    assert_equal(CV2.bindTest7(1, c:4), (1+2)*4)
+    assert_equal(CV2.bindTest7(1, c:5, b:6), (1+6)*5)
+  end
+
   def test_bindTest_double
     assert_equal(CV2.bindTest_double(2.0), 2.5)
     assert_equal(CV2.bindTest_double(2), 2.5)

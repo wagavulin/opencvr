@@ -60,6 +60,7 @@ CV_EXPORTS_W int bindTest3(int a) { return a + a; }
 CV_EXPORTS_W void bindTest4(int a, CV_IN_OUT Point& pt) { pt.x += a; pt.y -= a; }
 // CV_EXPORTS_W void bindTest5(int a, CV_IN_OUT Point& pt, CV_OUT int* x);
 // CV_EXPORTS_W bool bindTest6(int a, CV_IN_OUT Point& pt, CV_OUT int* x);
+CV_EXPORTS_W int bindTest7(int a, int b=2, int c=3) { return (a + b) * c; }
 
 CV_EXPORTS_W double bindTest_double(double a) { return a + 0.5; }
 
