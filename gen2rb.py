@@ -71,11 +71,11 @@ class ArgInfo:
         self.py_inputarg:bool = False
         self.py_outputarg:bool = False
 
-    def dump(self, depth):
+    def dump(self, depth, file=sys.stdout):
         indent = "  " * depth
-        print(f"{indent}tp: {self.tp}, name: {self.name}, defval: {self.defval}")
-        print(f"{indent}isarray: {self.isarray}, arraylen: {self.arraylen}, arraycvt: {self.arraycvt}")
-        print(f"{indent}input,output,return,rrvalue: {self.inputarg}, {self.outputarg}, {self.returnarg}, {self.isrvalueref}")
+        print(f"{indent}tp: {self.tp}, name: {self.name}, defval: {self.defval}", file=file)
+        print(f"{indent}isarray: {self.isarray}, arraylen: {self.arraylen}, arraycvt: {self.arraycvt}", file=file)
+        print(f"{indent}input,output,return,rrvalue: {self.inputarg}, {self.outputarg}, {self.returnarg}, {self.isrvalueref}", file=file)
 
 class FuncVariant:
     def __init__(self, classname:str, name:str, decl, isconstructor:bool, isphantom:bool=False):
@@ -96,15 +96,15 @@ class FuncVariant:
             ainfo = ArgInfo(a)
             self.args.append(ainfo)
 
-    def dump(self, depth):
+    def dump(self, depth, file=sys.stdout):
         indent = "  " * depth
-        print(f"{indent}classname: {self.classname}")
-        print(f"{indent}name: {self.name}")
-        print(f"{indent}wname: {self.wname}")
-        print(f"{indent}isconstructor: {self.isconstructor}")
-        print(f"{indent}isphantom: {self.isphantom}")
-        print(f"{indent}docstring: len: {len(self.docstring)}")
-        print(f"{indent}rettype: {self.rettype}")
+        print(f"{indent}classname: {self.classname}", file=file)
+        print(f"{indent}name: {self.name}", file=file)
+        print(f"{indent}wname: {self.wname}", file=file)
+        print(f"{indent}isconstructor: {self.isconstructor}", file=file)
+        print(f"{indent}isphantom: {self.isphantom}", file=file)
+        print(f"{indent}docstring: len: {len(self.docstring)}", file=file)
+        print(f"{indent}rettype: {self.rettype}", file=file)
 
 class FuncInfo:
     def __init__(self, classname:str, name:str, cname:str, isconstructor:bool, namespace:str, is_static:bool):
@@ -117,17 +117,17 @@ class FuncInfo:
         self.variants:list[FuncVariant] = []
         self.header:str = None
 
-    def dump(self, depth):
+    def dump(self, depth, file=sys.stdout):
         indent = "  " * depth
-        print(f"{indent}classname: {self.classname}")
-        print(f"{indent}name: {self.name}")
-        print(f"{indent}cname: {self.cname}")
-        print(f"{indent}isconstructor: {self.isconstructor}")
-        print(f"{indent}namespace: {self.namespace}")
-        print(f"{indent}is_static: {self.is_static}")
+        print(f"{indent}classname: {self.classname}", file=file)
+        print(f"{indent}name: {self.name}", file=file)
+        print(f"{indent}cname: {self.cname}", file=file)
+        print(f"{indent}isconstructor: {self.isconstructor}", file=file)
+        print(f"{indent}namespace: {self.namespace}", file=file)
+        print(f"{indent}is_static: {self.is_static}", file=file)
         for i, variant in enumerate(self.variants):
-            print(f"{indent}variants[{i}]")
-            variant.dump(depth+1)
+            print(f"{indent}variants[{i}]", file=file)
+            variant.dump(depth+1, file)
 
     def add_variant(self, decl, isphantom=False):
         self.variants.append(FuncVariant(self.classname, self.name, decl, self.isconstructor, isphantom))
@@ -518,25 +518,28 @@ class ClassInfo:
                     self.isalgorithm = True
                 self.base = self.base.replace("::", "_")
 
-    def dump(self, depth):
+    def dump(self, depth, file=sys.stdout):
         indent = "  " * depth
-        print(f"{indent}cname: {self.cname}")
-        print(f"{indent}wname: {self.wname}")
-        print(f"{indent}name: {self.name}")
-        print(f"{indent}base: {self.base}")
+        print(f"{indent}cname: {self.cname}", file=file)
+        print(f"{indent}wname: {self.wname}", file=file)
+        print(f"{indent}name: {self.name}", file=file)
+        print(f"{indent}base: {self.base}", file=file)
+        print(f"{indent}isinterface: {self.isinterface}", file=file)
+        print(f"{indent}isalgorithm: {self.isalgorithm}", file=file)
+        print(f"{indent}constructor: {not (self.constructor==None)}", file=file)
         for i, method_name in enumerate(self.methods):
-            print(f"{indent}methods[{i}] {method_name}")
-            self.methods[method_name].dump(depth+1)
+            print(f"{indent}methods[{i}] {method_name}", file=file)
+            self.methods[method_name].dump(depth+1, file)
 
 class Namespace:
     def __init__(self):
         self.funcs: dict[str, FuncInfo] = {}
         self.consts: dict[str, str] = {}     # "MyEnum2_MYENUM2_VALUE_A" => "cv::Ns1::MyEnum2::MYENUM2_VALUE_A"
 
-    def dump(self, depth):
+    def dump(self, depth, file=sys.stdout):
         indent = "  " * depth
         for i, name in enumerate(self.funcs):
-            print(f"{indent}funcs[{i}] {name}")
+            print(f"{indent}funcs[{i}] {name}", file=file)
 
 class RubyWrapperGenerator:
     def __init__(self):
