@@ -13,6 +13,8 @@ g_unsupported_retval_types:dict[str, int] = {}
 g_unsupported_arg_types:dict[str, int] = {}
 g_log_processed_funcs:list["FuncInfo"] = []
 
+g_enums = {}
+
 # "aa_bb_cc" => "Aa_Bb_cc"
 # Last element (=class name) is kept unchanged
 def to_camel_wname(wname):
@@ -28,6 +30,12 @@ def handle_ptr(tp:str) -> str:
     if tp.startswith('Ptr_'):
         tp = 'Ptr<' + "::".join(tp.split('_')[1:]) + '>'
     return tp
+
+def get_cname_if_enum(name):
+    for enum_wname, enum_cname in g_enums.items():
+        if name == enum_cname.split(".")[-1]:
+            return "::".join(enum_cname.split("."))
+    return name
 
 class ArgInfo:
     def __init__(self, arg_tuple:list):
@@ -211,6 +219,16 @@ class FuncInfo:
                 return True
             if rettype.startswith("Ptr<"):
                 return True
+            for enum_wname, enum_name in g_enums.items():
+                if rettype.split("::")[-1] == enum_wname.split("_")[-1]:
+                    return True
+            return False
+        def is_supported_argtype(argtype:str):
+            if argtype in supported_argtypes:
+                return True
+            for enum_wname, enum_name in g_enums.items():
+                if argtype.split("_")[-1] == enum_wname.split("_")[-1]:
+                    return True
             return False
 
         num_supported_variants:int = 0
@@ -225,7 +243,7 @@ class FuncInfo:
                 continue
             need_continue = False
             for a in v.args:
-                if not a.tp in supported_argtypes:
+                if not is_supported_argtype(a.tp):
                     support_statuses.append((False, f"input argument type is not supported: {a.name} {a.tp}"))
                     g_unsupported_arg_types[a.tp] = g_unsupported_arg_types.get(a.tp, 0) + 1
                     need_continue = True
@@ -325,6 +343,12 @@ class FuncInfo:
                     rvd_raw_types.append(a.tp[:-1])
                 else:
                     rvd_raw_types.append(a.tp)
+                rvd_raw_types[-1] = get_cname_if_enum(rvd_raw_types[-1])
+                if "_" in rvd_raw_types[-1] and not rvd_raw_types[-1] == "size_t" and not rvd_raw_types[-1].startswith("vector_"):
+                    # if type name satifies the above condition, it's probably an enum class
+                    # For example, "HOGDescriptor_HistogramNormType"
+                    # It should be changed to "HOGDescriptor::HistogramNormType"
+                    rvd_raw_types[-1] = "::".join(rvd_raw_types[-1].split("_"))
                 rvd_raw_var_names.append(f"raw_{a.name}")
                 if not a.tp[-1] == "*":
                     # If pointer arg has default value, it's always 0 or nullptr (Is this correct?)
@@ -425,7 +449,8 @@ class FuncInfo:
                 f.write(f"            ptr->v = new {ctor_cname}({args_str});\n")
             else:
                 if not v.rettype == "":
-                    f.write(f"            {v.rettype} raw_retval;\n")
+                    rettype = get_cname_if_enum(v.rettype)
+                    f.write(f"            {rettype} raw_retval;\n")
                     f.write(f"            raw_retval = ")
                 else:
                     f.write(f"            ")
@@ -682,7 +707,8 @@ class RubyWrapperGenerator:
             return res
         for name, classinfo in self.classes.items():
             process_isalgorithm(classinfo)
-
+        for k, v in self.enums.items():
+            g_enums[k] = v
 
         # for i, class_name in enumerate(self.classes):
         #     print(f"classes[{i}] {class_name}")
@@ -782,6 +808,24 @@ class RubyWrapperGenerator:
                     else:
                         f.write(f"    rb_define_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
                 f.write(f"}}\n")
+        # gen rbopencv_to() and rbopencv_from() for enum types
+        with open(f"{out_dir}/rbopencv_enum_converter.hpp", "w") as f:
+            for name, dot_name in self.enums.items(): # name: "Ns1_MyEnum2", dot_name: "Ns1.Ns11.MyEnum2"
+                cname = dot_name.replace(".", "::")
+                f.write(f"template<>\n")
+                f.write(f"bool rbopencv_to(VALUE obj, {cname}& value){{\n")
+                f.write(f"    TRACE_PRINTF(\"[rbopencv_to {name}]\\n\");\n")
+                f.write(f"    if (!FIXNUM_P(obj))\n")
+                f.write(f"        return false;\n")
+                f.write(f"    int tmp = FIX2INT(obj);\n")
+                f.write(f"    value = static_cast<{cname}>(tmp);\n")
+                f.write(f"    return true;")
+                f.write(f"}}\n")
+                f.write(f"template<>\n")
+                f.write(f"VALUE rbopencv_from(const {cname}& value){{\n")
+                f.write(f"    TRACE_PRINTF(\"[rbopencv_from {name}] %d\", value);\n")
+                f.write(f"    return INT2NUM(static_cast<int>(value));\n")
+                f.write(f"}}\n")
         # gen funcs
         with open(f"{out_dir}/rbopencv_funcs.hpp", "w") as f:
             funcs:list[FuncInfo] = []
@@ -809,7 +853,7 @@ class RubyWrapperGenerator:
                 f.write('static MethodDef methods_%s[] = {\n'%wname)
                 for name, func in sorted(ns.funcs.items()):
                     num_supported_variants, support_statuses = func.is_target_function()
-                    if num_supported_variants == 0:
+                    if num_supported_variants == 0 and not (name == "bindTest_OldEnum"):
                         continue
                     wrapper_name = func.get_wrapper_name()
                     if func.isconstructor:

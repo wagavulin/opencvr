@@ -142,13 +142,19 @@ CV_EXPORTS_W void bindTest_InOut_vector_vector_Point2f(CV_IN_OUT std::vector<std
 // enum
 enum MyEnum1 {
     MYENUM1_UNCHANGED = -1,
-    MYENUM1_GRAYSACLE =  0,
+    MYENUM1_GRAYSCALE =  0,
     MYENUM1_COLOR     =  1,
     MYENUM1_IGNORE_ORIENTATION = 128,
 };
+CV_EXPORTS_W cv::MyEnum1 bindTest_OldEnum(MyEnum1 e) {
+    if (e == MYENUM1_GRAYSCALE) { return MYENUM1_COLOR; }
+    return MYENUM1_IGNORE_ORIENTATION;
+}
 
 class CV_EXPORTS_W Foo {
 public:
+    enum EnumInClass1 { EIC1_AA=0, EIC1_BB=1, EIC1_CC=2 };
+
     CV_WRAP static int smethod1(int a) { return a + 10; }
     CV_WRAP Foo() { DCV_TRACE_PRINTF("[%s]\n", __func__); }
     CV_WRAP Foo(int value1) : m_value1(value1) { DCV_TRACE_PRINTF("[%s]\n", __func__); }
@@ -156,6 +162,14 @@ public:
     CV_WRAP int method1(int a) { return m_value1 + a; }
     CV_WRAP int method2(int a) { return m_value1 + a + 1; }
     CV_WRAP int method2(int a, int b) { return m_value1 + a + b; }
+    CV_WRAP Foo::EnumInClass1 method3(Foo::EnumInClass1 e) {
+        if (e == EnumInClass1::EIC1_AA) { return EnumInClass1::EIC1_BB; }
+        return EnumInClass1::EIC1_CC;
+    }
+    CV_WRAP EnumInClass1 method4(EnumInClass1 e) {
+        if (e == EnumInClass1::EIC1_AA) { return EnumInClass1::EIC1_BB; }
+        return EnumInClass1::EIC1_CC;
+    }
     int m_value1{123};
 };
 class CV_EXPORTS_W Fizz {

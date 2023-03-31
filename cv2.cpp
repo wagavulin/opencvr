@@ -716,6 +716,7 @@ struct ConstDef {
 static VALUE mCV2;
 #include "autogen/rbopencv_wrapclass.hpp"
 
+#include "autogen/rbopencv_enum_converter.hpp"
 #include "autogen/rbopencv_funcs.hpp"
 #include "autogen/rbopencv_modules_content.hpp"
 

@@ -191,6 +191,8 @@ class BindTest < Test::Unit::TestCase
     # constructor with argument
     foo = CV2::Foo.new(234)
     assert_equal(foo.method1(1), 235)
+    # Enum in class
+    assert_equal(foo.method3(CV2::Foo_EIC1_AA), CV2::Foo_EIC1_BB)
     # static method (as class method)
     assert_equal(CV2::Foo::smethod1(10), 20)
     assert_equal(CV2::Foo.smethod1(10), 20)
@@ -232,6 +234,9 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2::Ns1::MyEnum3_MYENUM3_VALUE_R, 120)
     # old style enum under subsubmodule
     assert_equal(CV2::Ns1::Ns11::MYENUM4_VALUE_1, 1000)
+    # enum argument
+    assert_equal(CV2.bindTest_OldEnum(CV2::MYENUM1_GRAYSCALE), CV2::MYENUM1_COLOR)
+    assert_equal(CV2.bindTest_OldEnum(CV2::MYENUM1_COLOR), CV2::MYENUM1_IGNORE_ORIENTATION)
   end
 
   def test_imgproc
