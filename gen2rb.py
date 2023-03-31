@@ -878,6 +878,20 @@ class RubyWrapperGenerator:
                 custom_entries_macro = 'RBOPENCV_EXTRA_CONSTANTS_{}'.format(wname.upper())
                 f.write('#ifdef {}\n    {}\n#endif\n'.format(custom_entries_macro, custom_entries_macro))
                 f.write('    {NULL, 0}\n};\n\n')
+        with open(f"{out_dir}/classinfo.txt", "w") as f:
+            print("ClassInfo", file=f)
+            for cii, key in enumerate(self.classes):
+                print(f"  {cii} {key}", file=f)
+                self.classes[key].dump(2, f)
+        with open(f"{out_dir}/namespace.txt", "w") as f:
+            print("Namespace", file=f)
+            for nsi, key in enumerate(self.namespaces):
+                print(f"  {nsi} {key}", file=f)
+                self.namespaces[key].dump(2, f)
+        with open(f"{out_dir}/enums.txt", "w") as f:
+            print("Enum", file=f)
+            for wname, name in self.enums.items():
+                print(f"{wname} {name}", file=f)
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:
