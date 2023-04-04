@@ -660,11 +660,13 @@ class RubyWrapperGenerator:
 
     def gen(self, headers:list[str], out_dir:str):
         fout_inc = open(f"{out_dir}/rbopencv_include.hpp", "w")
+        hdr_json_out_dir = f"{out_dir}/parsed-headers"
+        os.makedirs(hdr_json_out_dir, exist_ok=True)
         for hdr in headers:
             decls = self.parser.parse(hdr)
             hdr_fname = os.path.split(hdr)[1]
             hdr_stem = os.path.splitext(hdr_fname)[0]
-            out_json_path = f"{out_dir}/tmp-{hdr_stem}.json"
+            out_json_path = f"{hdr_json_out_dir}/{hdr_stem}.json"
             with open(out_json_path, "w") as f:
                 json.dump(decls, f, indent=2)
             fout_inc.write(f'#include "{hdr}"\n')
