@@ -80,8 +80,9 @@ CV_EXPORTS_W void bindTest_Out_Pointp(int a, CV_OUT Point* pt) { pt->x=a+11; pt-
 CV_EXPORTS_W void bindTest_InOut_Mat(CV_IN_OUT Mat&) {}
 CV_EXPORTS_W void bindTest_InOut_cvMat(CV_IN_OUT cv::Mat&) {}
 CV_EXPORTS_W void bindTest_InOut_bool(CV_IN_OUT bool& a) { a = !a; }
-// CV_EXPORTS_W void bindTest_InOut_uchar(CV_IN_OUT uchar& a);
-// CV_EXPORTS_W void bindTest_InOut_int(CV_IN_OUT int& a);
+CV_EXPORTS_W void bindTest_InOut_int(CV_IN_OUT int& a) { a += 10; }
+CV_EXPORTS_W void bindTest_InOut_char(CV_IN_OUT char& a) { a += 20; };
+CV_EXPORTS_W void bindTest_InOut_uchar(CV_IN_OUT uchar& a) { a += 30; };
 CV_EXPORTS_W void bindTest_Out_intp(CV_OUT int* a) { *a = 10; }
 CV_EXPORTS_W void bindTest_InOut_size_t(CV_IN_OUT size_t& a) { a += 10; }
 CV_EXPORTS_W void bindTest_InOut_float(CV_IN_OUT float& a) { a += 0.5; }
@@ -114,6 +115,8 @@ CV_EXPORTS_W void bindTest_InOut_RotatedRect(CV_IN_OUT RotatedRect& a) {
     a.angle += 0.5;
 }
 CV_EXPORTS_W void bindTest_InOut_vector_int(CV_IN_OUT std::vector<int>& xs) { for (auto& x : xs) { x += 3; } }
+CV_EXPORTS_W void bindTest_InOut_vector_char(CV_IN_OUT std::vector<char>& xs) { for (auto& x : xs) { x += 4; } }
+CV_EXPORTS_W void bindTest_InOut_vector_uchar(CV_IN_OUT std::vector<uchar>& xs) { for (auto& x : xs) { x += 5; } }
 CV_EXPORTS_W void bindTest_InOut_vector_float(CV_IN_OUT std::vector<float>& xs) { for (auto& x : xs) { x += 0.5; } }
 CV_EXPORTS_W void bindTest_InOut_vector_double(CV_IN_OUT std::vector<double>& xs) { for (auto& x : xs) { x += 1.5; } }
 CV_EXPORTS_W void bindTest_InOut_vector_String(CV_IN_OUT std::vector<String>& ss) { for (auto& s : ss) { s += "x"; } }

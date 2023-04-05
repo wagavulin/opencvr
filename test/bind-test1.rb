@@ -91,10 +91,9 @@ class BindTest < Test::Unit::TestCase
 
   def test_bind_primitive_types
     assert_equal(CV2.bindTest_InOut_bool(true), false)
-  #   ret = CV2.bindTest_InOut_uchar(10)
-  #   assert_equal(ret, 20)
-  #   ret = CV2.bindTest_InOut_int(10)
-  #   assert_equal(ret, 20)
+    assert_equal(CV2.bindTest_InOut_int(10), 20)
+    assert_equal(CV2.bindTest_InOut_char(-10), 10)
+    assert_equal(CV2.bindTest_InOut_uchar(20), 50)
     assert_equal(CV2.bindTest_Out_intp(), 10)
     assert_equal(CV2.bindTest_InOut_size_t(10), 20)
     assert_equal(CV2.bindTest_InOut_float(1.0), 1.5)
@@ -130,6 +129,8 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2.bindTest_Out_Rectp(), [10, 20, 30, 40])
     assert_equal(CV2.bindTest_InOut_RotatedRect([[100, 200], [10, 20], 30]), [[100.5, 200.5], [10.5, 20.5], 30.5])
     assert_equal(CV2.bindTest_InOut_vector_int([10, 20, 30]), [13, 23, 33])
+    assert_equal(CV2.bindTest_InOut_vector_char([10, 20, 30]), [14, 24, 34])
+    assert_equal(CV2.bindTest_InOut_vector_uchar([10, 20, 30]), [15, 25, 35])
     assert_equal(CV2.bindTest_InOut_vector_float([10.0, 20.0, 30]), [10.5, 20.5, 30.5])
     assert_equal(CV2.bindTest_InOut_vector_double([10.0, 20.0, 30]), [11.5, 21.5, 31.5])
     assert_equal(CV2.bindTest_InOut_vector_String(["foo", "bar"]), ["foox", "barx"])

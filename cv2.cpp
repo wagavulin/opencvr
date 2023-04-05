@@ -49,6 +49,8 @@ void rbPopulateArgumentConversionErrors(const std::string& msg)
 }
 
 using vector_int = std::vector<int>;
+using vector_char = std::vector<char>;
+using vector_uchar = std::vector<uchar>;
 using vector_float = std::vector<float>;
 using vector_double = std::vector<double>;
 using vector_String = std::vector<std::string>;
@@ -350,6 +352,24 @@ bool rbopencv_to(VALUE obj, int& value){
 }
 
 template<>
+bool rbopencv_to(VALUE obj, char& value){
+    TRACE_PRINTF("[rbopencv_to char]\n");
+    if (!FIXNUM_P(obj))
+        return false;
+    value = FIX2INT(obj);
+    return true;
+}
+
+template<>
+bool rbopencv_to(VALUE obj, uchar& value){
+    TRACE_PRINTF("[rbopencv_to uchar]\n");
+    if (!FIXNUM_P(obj))
+        return false;
+    value = FIX2INT(obj);
+    return true;
+}
+
+template<>
 bool rbopencv_to(VALUE obj, size_t& value){
     TRACE_PRINTF("[rbopencv_to size_t]\n");
     if (!FIXNUM_P(obj))
@@ -578,6 +598,18 @@ VALUE rbopencv_from(const cv::Mat& m){
 template<>
 VALUE rbopencv_from(const int& value){
     TRACE_PRINTF("[rbopencv_from int]\n");
+    return INT2NUM(value);
+}
+
+template<>
+VALUE rbopencv_from(const char& value){
+    TRACE_PRINTF("[rbopencv_from char]\n");
+    return INT2NUM(value);
+}
+
+template<>
+VALUE rbopencv_from(const uchar& value){
+    TRACE_PRINTF("[rbopencv_from uchar]\n");
     return INT2NUM(value);
 }
 
