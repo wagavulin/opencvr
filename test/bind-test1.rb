@@ -243,9 +243,11 @@ class BindTest < Test::Unit::TestCase
   def test_imgproc
     img0 = Numo::UInt8.zeros(600, 800, 3)
     img0[0..-1, 0..-1, 0] = 255
-    img1 = img0.clone()
-    CV2::rectangle(img1, [50,50], [150, 100], [255,255,255])
-    assert_not_equal(img1, img0)
-    #CV2::imshow("Test", img0); CV2::waitKey(0); CV2::destroyAllWindows()
+    img1 = img0
+    img2 = img0.clone()
+    CV2::putText(img0, "Hello", [100, 100], CV2::FONT_HERSHEY_PLAIN, 5, [255,255,255], 2)
+    CV2::rectangle(img0, [50,50], [150, 100], [255,255,255])
+    assert_equal(img0, img1)
+    assert_not_equal(img0, img2)
   end
 end
