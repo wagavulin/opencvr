@@ -181,7 +181,7 @@ class FuncInfo:
             "vector_uchar",
             "vector_float", "std::vector<float>",
             "vector_double",
-            "vector_String", "vector_string",
+            "vector_String", "vector_string", "std::vector<String>",
             "vector_Point",
             "vector_Point2f",
             "vector_Rect",
