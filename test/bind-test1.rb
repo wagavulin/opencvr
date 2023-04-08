@@ -111,6 +111,7 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2.bindTest_Out_cvString(), "bb")
     assert_equal(CV2.bindTest_Out_stdstring(), "cc")
     assert_equal(CV2.bindTest_InOut_String("foo"), "foox")
+    assert_equal(CV2.bindTest_In_cstring("abc"), 3)
     assert_equal(CV2.bindTest_InOut_Scalar([10, 20, 30, 40]), [11, 22, 33, 44])
     assert_equal(CV2.bindTest_InOut_Size([100, 200]) ,[110, 210])
     assert_equal(CV2.bindTest_InOut_Size2i([100000000, 200000000]) ,[100000020, 200000020])

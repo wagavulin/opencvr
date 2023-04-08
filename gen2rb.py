@@ -209,6 +209,7 @@ class FuncInfo:
             "double*",
             "float",
             "String", "std::string",
+            "c_string",
             "Point",
             "Point*",
             "Point2f",
@@ -354,7 +355,10 @@ class FuncInfo:
                     # "&raw_x" is used when calling C++ API.
                     cac_args.append(f"&raw_{a.name}")
                 else:
-                    cac_args.append(f"raw_{a.name}")
+                    if a.tp == "c_string":
+                        cac_args.append(f"raw_{a.name}.c_str()")
+                    else:
+                        cac_args.append(f"raw_{a.name}")
             # Other process is based on ordered arguments
             for a in ordered_args:
                 if a.inputarg == False and a.outputarg == True and a.tp[-1] == "*":
@@ -362,7 +366,10 @@ class FuncInfo:
                     # it's declared as non-pointer (int raw_x).
                     rvd_raw_types.append(a.tp[:-1])
                 else:
-                    rvd_raw_types.append(a.tp)
+                    if a.tp == "c_string":
+                        rvd_raw_types.append("std::string")
+                    else:
+                        rvd_raw_types.append(a.tp)
                 rvd_raw_types[-1] = get_cname_if_enum(rvd_raw_types[-1])
                 if "_" in rvd_raw_types[-1] and not rvd_raw_types[-1] == "size_t" and not rvd_raw_types[-1].startswith("vector_"):
                     # if type name satifies the above condition, it's probably an enum class

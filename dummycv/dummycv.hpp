@@ -95,6 +95,7 @@ CV_EXPORTS_W String bindTest_Out_String() { return "aa"; }
 CV_EXPORTS_W cv::String bindTest_Out_cvString() { return "bb"; }
 CV_EXPORTS_W std::string bindTest_Out_stdstring() { return "cc"; }
 CV_EXPORTS_W String bindTest_InOut_String(const String& s) { return s + "x"; }
+CV_EXPORTS_W int bindTest_In_cstring(const char* s) { return static_cast<int>(strlen(s)); }
 CV_EXPORTS_W void bindTest_InOut_Scalar(CV_IN_OUT Scalar& a) { a[0] += 1; a[1] += 2; a[2] += 3; a[3] += 4; }
 CV_EXPORTS_W void bindTest_InOut_Size(CV_IN_OUT Size& a) { a.width += 10; a.height += 10; }
 CV_EXPORTS_W void bindTest_InOut_Size2i(CV_IN_OUT Size2i& a) { a.width += 20; a.height += 20; }
