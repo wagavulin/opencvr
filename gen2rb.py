@@ -741,23 +741,16 @@ class RubyWrapperGenerator:
         # gen wrapclass
         with open(f"{out_dir}/rbopencv_wrapclass.hpp", "w") as f:
             for decl_idx, name, classinfo in classlist1:
-                as_shared_ptr = classinfo.isinterface or classinfo.isalgorithm or name == "Algorithm" or name == "Fizz"
                 cClass = f"c{name}" # cFoo
                 cname = classinfo.cname # cv::Ns1::Bar
                 wrap_struct = f"struct Wrap_{name}" # struct WrapFoo
                 classtype = f"{name}_type"
                 f.write(f"static VALUE {cClass};\n")
                 f.write(f"{wrap_struct} {{\n")
-                if as_shared_ptr:
-                    f.write(f"    Ptr<{cname}> v;\n")
-                else:
-                    f.write(f"    {cname}* v;\n")
+                f.write(f"    Ptr<{cname}> v;\n")
                 f.write(f"}};\n")
                 f.write(f"static void wrap_{name}_free({wrap_struct}* ptr){{\n")
-                if as_shared_ptr:
-                    f.write(f"    ptr->v.reset();\n")
-                else:
-                    f.write(f"    delete ptr->v;\n")
+                f.write(f"    ptr->v.reset();\n")
                 f.write(f"    ruby_xfree(ptr);\n")
                 f.write(f"}};\n")
                 f.write(f"static const rb_data_type_t {classtype} {{\n")
@@ -766,18 +759,11 @@ class RubyWrapperGenerator:
                 f.write(f"    NULL, NULL,\n")
                 f.write(f"    RUBY_TYPED_FREE_IMMEDIATELY\n")
                 f.write(f"}};\n")
-                if as_shared_ptr:
-                    f.write(f"static Ptr<{cname}> get_{name}(VALUE self){{\n")
-                    f.write(f"    {wrap_struct}* ptr;\n")
-                    f.write(f"    TypedData_Get_Struct(self, {wrap_struct}, &{name}_type, ptr);\n")
-                    f.write(f"    return ptr->v;\n")
-                    f.write(f"}}\n")
-                else:
-                    f.write(f"static {cname}* get_{name}(VALUE self){{\n")
-                    f.write(f"    {wrap_struct}* ptr;\n")
-                    f.write(f"    TypedData_Get_Struct(self, {wrap_struct}, &{name}_type, ptr);\n")
-                    f.write(f"    return ptr->v;\n")
-                    f.write(f"}}\n")
+                f.write(f"static Ptr<{cname}> get_{name}(VALUE self){{\n")
+                f.write(f"    {wrap_struct}* ptr;\n")
+                f.write(f"    TypedData_Get_Struct(self, {wrap_struct}, &{name}_type, ptr);\n")
+                f.write(f"    return ptr->v;\n")
+                f.write(f"}}\n")
                 f.write(f"static VALUE wrap_{name}_alloc(VALUE klass){{\n")
                 f.write(f"    {wrap_struct}* ptr = nullptr;\n")
                 f.write(f"    VALUE ret = TypedData_Make_Struct(klass, {wrap_struct}, &{name}_type, ptr);\n")
