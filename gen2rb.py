@@ -185,6 +185,7 @@ class FuncInfo:
             "vector_Point",
             "vector_Point2f",
             "vector_Rect",
+            "FileNode",
         ]
         supported_argtypes = [
             "Mat",
@@ -221,6 +222,7 @@ class FuncInfo:
             "vector_Rect",
             "vector_vector_int",
             "vector_vector_Point2f",
+            "FileNode",
         ]
         def is_supported_rettype(rettype:str):
             if rettype in supported_rettypes:
