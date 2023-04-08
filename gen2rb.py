@@ -84,6 +84,7 @@ class FuncVariant:
         self.wname:str = name
         self.isconstructor = isconstructor
         self.isphantom = isphantom
+        self.wrapas:str = None
 
         self.docstring = decl[5]
 
@@ -92,6 +93,9 @@ class FuncVariant:
             self.rettype = ""
         self.args:list[ArgInfo] = []
         self.array_counters = {}
+        for s in decl[2]:
+            if s.startswith("="):
+                self.wrapas = s[1:]
         for a in decl[3]:
             ainfo = ArgInfo(a)
             self.args.append(ainfo)
@@ -101,6 +105,7 @@ class FuncVariant:
         print(f"{indent}classname: {self.classname}", file=file)
         print(f"{indent}name: {self.name}", file=file)
         print(f"{indent}wname: {self.wname}", file=file)
+        print(f"{indent}wrapas: {self.wrapas}", file=file)
         print(f"{indent}isconstructor: {self.isconstructor}", file=file)
         print(f"{indent}isphantom: {self.isphantom}", file=file)
         print(f"{indent}docstring: len: {len(self.docstring)}", file=file)
@@ -111,6 +116,7 @@ class FuncInfo:
         self.classname:str = classname
         self.name:str = name
         self.cname:str = cname
+        self.wrapas:str = None
         self.isconstructor:bool = isconstructor
         self.namespace:str = namespace
         self.is_static:bool = is_static
@@ -122,6 +128,7 @@ class FuncInfo:
         print(f"{indent}classname: {self.classname}", file=file)
         print(f"{indent}name: {self.name}", file=file)
         print(f"{indent}cname: {self.cname}", file=file)
+        print(f"{indent}wrapas: {self.wrapas}", file=file)
         print(f"{indent}isconstructor: {self.isconstructor}", file=file)
         print(f"{indent}namespace: {self.namespace}", file=file)
         print(f"{indent}is_static: {self.is_static}", file=file)
@@ -131,9 +138,12 @@ class FuncInfo:
 
     def add_variant(self, decl, isphantom=False):
         self.variants.append(FuncVariant(self.classname, self.name, decl, self.isconstructor, isphantom))
+        self.wrapas = self.variants[-1].wrapas
 
     def get_wrapper_name(self):
         name = self.name
+        if self.wrapas:
+            name = self.wrapas
         if self.classname:
             classname = self.classname + "_"
             if "[" in name:
@@ -815,10 +825,13 @@ class RubyWrapperGenerator:
                     if num_supported_variants == 0:
                         continue
                     wrapper_name = func.get_wrapper_name()
+                    func_name = func.name
+                    if func.wrapas:
+                        func_name = func.wrapas
                     if func.is_static:
-                        f.write(f"    rb_define_singleton_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
+                        f.write(f"    rb_define_singleton_method({cClass}, \"{func_name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
                     else:
-                        f.write(f"    rb_define_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
+                        f.write(f"    rb_define_method({cClass}, \"{func_name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
                 f.write(f"}}\n")
         # gen rbopencv_to() and rbopencv_from() for enum types
         with open(f"{out_dir}/rbopencv_enum_converter.hpp", "w") as f:

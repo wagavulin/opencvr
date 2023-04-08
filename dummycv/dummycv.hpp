@@ -173,6 +173,7 @@ public:
         if (e == EnumInClass1::EIC1_AA) { return EnumInClass1::EIC1_BB; }
         return EnumInClass1::EIC1_CC;
     }
+    CV_WRAP_AS(at) int operator[](int x) const { return x + m_value1; }
     int m_value1{123};
 };
 class CV_EXPORTS_W Fizz {
