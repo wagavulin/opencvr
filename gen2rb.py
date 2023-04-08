@@ -778,6 +778,17 @@ class RubyWrapperGenerator:
                 f.write(f"    ptr->v = value;\n")
                 f.write(f"    return a;\n")
                 f.write(f"}}\n")
+                isinterface = classinfo.isalgorithm or classinfo.isinterface
+                if not isinterface:
+                    f.write(f"template<>\n")
+                    f.write(f"VALUE rbopencv_from(const {cname}& value){{\n")
+                    f.write(f"    TRACE_PRINTF(\"[rbopencv_from {cname}]\\n\");\n")
+                    f.write(f"    {wrap_struct} *ptr;\n")
+                    f.write(f"    VALUE a = wrap_{name}_alloc({cClass});\n")
+                    f.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{name}_type, ptr);\n")
+                    f.write(f"    ptr->v = new {cname}(value);\n")
+                    f.write(f"    return a;\n")
+                    f.write(f"}}\n")
                 f.write(f"static VALUE wrap_cv_{name}_init(int argc, VALUE *argv, VALUE self); // implemented in rbopencv_funcs.hpp\n\n")
         # gen class registration
         with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
