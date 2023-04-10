@@ -945,7 +945,8 @@ with open(f"{dstdir}/support-status.csv", "w") as f:
             arg_types = [a.tp for a in v.args]
             args_str = ",".join(arg_types)
             is_supported, reason = func.support_statuses[vi]
-            print(f'{is_supported},{func.cname},"{args_str}",{reason},{header_fname}', file=f)
+            wrapas = v.wrapas if v.wrapas else ""
+            print(f'{is_supported},{func.cname},"{args_str}",{v.rettype},{reason},{header_fname},{wrapas}', file=f)
 with open(f"{dstdir}/unsupported-types.txt", "w") as f:
     print("retval types", file=f)
     for t, num in g_unsupported_retval_types.items():
