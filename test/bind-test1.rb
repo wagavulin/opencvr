@@ -215,6 +215,32 @@ class BindTest < Test::Unit::TestCase
     assert_equal(ssi2.method1(), 2000)
   end
 
+  def test_wrap_as
+    # Global function (CV_WRAP_AS)
+    assert_equal(CV2::wrapAsFunc1(10), 20)
+    assert_equal(CV2::wrapAsFunc2("foo"), 3)
+    # Global function (CV_EXPORTS_AS)
+    assert_equal(CV2::exportsAsFunc1(10), 20)
+    assert_equal(CV2::exportsAsFunc2("foo"), 3)
+    # Instance method
+    foo = CV2::Foo.new()
+    assert_equal(foo.at(10), 133)
+    assert_equal(foo.getNode("foo"), 126)
+    # Class method
+    assert_equal(CV2::Foo::wrapAsSMethod1(11), 21)
+    assert_equal(CV2::Foo::wrapAsSMethod2("abcd"), 4)
+    # Global function in submodule
+    assert_equal(CV2::Ns1::Ns11::ns11wrapAsFunc1(10), 20)
+    assert_equal(CV2::Ns1::Ns11::ns11wrapAsFunc2("foo"), 3)
+    # Instance method
+    ssc1 = CV2::Ns1::Ns11::SubSubC1.new()
+    assert_equal(ssc1.at(10), 121)
+    assert_equal(ssc1.getNode("foo"), 114)
+    # Class method in submodule
+    assert_equal(CV2::Ns1::Ns11::ssc1wrapAsSMethod1(11), 21)
+    assert_equal(CV2::Ns1::Ns11::ssc1wrapAsSMethod2("abcd"), 4)
+  end
+
   def test_submodule
     # class in submodule
     subsubc1 = CV2::Ns1::Ns11::SubSubC1.new()

@@ -142,6 +142,10 @@ CV_EXPORTS_W void bindTest_InOut_vector_vector_int(CV_IN_OUT std::vector<std::ve
 CV_EXPORTS_W void bindTest_InOut_vector_vector_Point2f(CV_IN_OUT std::vector<std::vector<Point2f>>& pss) {
     for (auto& ps : pss) { for (auto& p : ps) { p.x += 1; p.y += 2; } }
 }
+CV_EXPORTS CV_WRAP_AS(wrapAsFunc1) int bindTest_WrapAsFunc(int a) { return a + 10; }
+CV_EXPORTS CV_WRAP_AS(wrapAsFunc2) int bindTest_WrapAsFunc(std::string s) { return static_cast<int>(s.length()); }
+CV_EXPORTS_AS(exportsAsFunc1) int bindTest_ExportsAsFunc(int a) { return a + 10; }
+CV_EXPORTS_AS(exportsAsFunc2) int bindTest_ExportsAsFunc(std::string s) { return static_cast<int>(s.length()); }
 
 // enum
 enum MyEnum1 {
@@ -175,6 +179,9 @@ public:
         return EnumInClass1::EIC1_CC;
     }
     CV_WRAP_AS(at) int operator[](int x) const { return x + m_value1; }
+    CV_WRAP_AS(getNode) int operator[](const char* name) const { return static_cast<int>(strlen(name)) + m_value1; }
+    CV_WRAP_AS(wrapAsSMethod1) static int wrapAsSMethod(int a) { return a + 10; }
+    CV_WRAP_AS(wrapAsSMethod2) static int wrapAsSMethod(std::string s) { return static_cast<int>(s.length()); }
     int m_value1{123};
 };
 class CV_EXPORTS_W Fizz {
@@ -227,6 +234,10 @@ public:
     CV_WRAP ~SubSubC1() { DCV_TRACE_PRINTF("[%s]\n", __func__); }
     CV_WRAP int method1(int a) { return a + m_value1; }
     CV_WRAP int method1(int a, int b) { return a + b + m_value1; }
+    CV_WRAP_AS(at) int operator[](int x) const { return x + m_value1; }
+    CV_WRAP_AS(getNode) int operator[](const char* name) const { return static_cast<int>(strlen(name)) + m_value1; }
+    CV_WRAP_AS(ssc1wrapAsSMethod1) static int wrapAsSMethod(int a) { return a + 10; }
+    CV_WRAP_AS(ssc1wrapAsSMethod2) static int wrapAsSMethod(std::string s) { return static_cast<int>(s.length()); }
     int m_value1{111};
 };
 class CV_EXPORTS_W SubSubI2 {
@@ -244,6 +255,8 @@ CV_EXPORTS_W Ptr<SubSubI2> createSubSubI2() {
     Ptr<SubSubI2> p{new SubSubC2(2000)};
     return p;
 }
+CV_EXPORTS CV_WRAP_AS(ns11wrapAsFunc1) int bindTest_WrapAsFunc(int a) { return a + 10; }
+CV_EXPORTS CV_WRAP_AS(ns11wrapAsFunc2) int bindTest_WrapAsFunc(std::string s) { return static_cast<int>(s.length()); }
 
 } // namespace Ns11
 } // namespace Ns1

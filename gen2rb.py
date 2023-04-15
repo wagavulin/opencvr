@@ -112,14 +112,15 @@ class FuncVariant:
         print(f"{indent}rettype: {self.rettype}", file=file)
 
 class FuncInfo:
-    def __init__(self, classname:str, name:str, cname:str, isconstructor:bool, namespace:str, is_static:bool):
+    def __init__(self, classname:str, name:str, cname:str, isconstructor:bool, namespace:str, is_static:bool, is_static_global:bool):
         self.classname:str = classname
         self.name:str = name
         self.cname:str = cname
-        self.wrapas:str = None
+        self.origname:str = name
         self.isconstructor:bool = isconstructor
         self.namespace:str = namespace
         self.is_static:bool = is_static
+        self.is_static_global:bool = is_static_global
         self.variants:list[FuncVariant] = []
         self.header:str = None
 
@@ -128,7 +129,7 @@ class FuncInfo:
         print(f"{indent}classname: {self.classname}", file=file)
         print(f"{indent}name: {self.name}", file=file)
         print(f"{indent}cname: {self.cname}", file=file)
-        print(f"{indent}wrapas: {self.wrapas}", file=file)
+        print(f"{indent}origname: {self.origname}", file=file)
         print(f"{indent}isconstructor: {self.isconstructor}", file=file)
         print(f"{indent}namespace: {self.namespace}", file=file)
         print(f"{indent}is_static: {self.is_static}", file=file)
@@ -138,12 +139,9 @@ class FuncInfo:
 
     def add_variant(self, decl, isphantom=False):
         self.variants.append(FuncVariant(self.classname, self.name, decl, self.isconstructor, isphantom))
-        self.wrapas = self.variants[-1].wrapas
 
     def get_wrapper_name(self):
         name = self.name
-        if self.wrapas:
-            name = self.wrapas
         if self.classname:
             classname = self.classname + "_"
             if "[" in name:
@@ -166,6 +164,10 @@ class FuncInfo:
         return "static VALUE %s(int argc, VALUE *argv, VALUE klass)" % (full_fname)
 
     def is_target_function(self) -> tuple[int, list[tuple[bool, str]]]:
+        unsupported_names = [
+            "initUndistortRectifyMap",
+            "undistortPoints",
+        ]
         supported_rettypes = [
             "", # void
             "Mat", "cv::Mat",
@@ -258,6 +260,9 @@ class FuncInfo:
             num_mandatory_args = 0
             num_optional_args = 0
             strs = self.cname.split("::")
+            if self.name in unsupported_names:
+                support_statuses.append((False, "listed in unsupported names"))
+                continue
             if not is_supported_rettype(v.rettype):
                 support_statuses.append((False, f"retval type is not supported: {self.variants[0].rettype}"))
                 g_unsupported_retval_types[v.rettype] = g_unsupported_retval_types.get(v.rettype, 0) + 1
@@ -482,9 +487,23 @@ class FuncInfo:
                 else:
                     f.write(f"            ")
                 if self.classname and not self.is_static: # call instance method
-                    f.write(f"get_{self.classname}(klass)->{self.name}")
+                    cxx_method_name = self.name
+                    if self.origname:
+                        cxx_method_name = self.origname
+                    f.write(f"get_{self.classname}(klass)->{cxx_method_name}")
                 else:              # call global function
-                    f.write(f"{self.cname}")
+                    cxx_method_name = self.cname
+                    if self.origname:
+                        if self.name[0].isupper() and not self.name in ["PCACompute2"]:
+                            cxx_method_name = self.cname
+                        else:
+                            cxx_method_name = self.origname
+                        if self.is_static and not(self.is_static_global):
+                            cname_prefix = "::".join(self.cname.split("::")[0:-1])
+                            cname = f"{cname_prefix}::{self.origname}"
+                            cxx_method_name = cname
+                            pass
+                    f.write(f"{cxx_method_name}")
                 f.write(f"({', '.join(cac_args)});\n")
 
             # Convert the return value(s)
@@ -651,7 +670,7 @@ class RubyWrapperGenerator:
         if is_static:
             # Add it as a method to the class
             func_map = self.classes[classname].methods
-            func = func_map.setdefault(name, FuncInfo(classname, name, cname, isconstructor, namespace_str, is_static))
+            func = func_map.setdefault(name, FuncInfo(classname, name, cname, isconstructor, namespace_str, is_static, False))
             func.add_variant(decl, isphantom)
 
             # Add it as global function
@@ -667,7 +686,7 @@ class RubyWrapperGenerator:
                 w_classes.append(w_classname)
             g_wname = "_".join(w_classes+[name]) # "SubSubC1_smethod1"
             func_map = self.namespaces.setdefault(namespace_str, Namespace()).funcs
-            func = func_map.setdefault(g_name, FuncInfo("", g_name, cname, isconstructor, namespace_str, False))
+            func = func_map.setdefault(g_name, FuncInfo("", g_name, cname, isconstructor, namespace_str, False, True))
             func.add_variant(decl, isphantom)
             if g_wname != g_name:  # TODO OpenCV 5.0
                 wfunc = func_map.setdefault(g_wname, FuncInfo("", g_wname, cname, isconstructor, namespace_str, False))
@@ -677,7 +696,7 @@ class RubyWrapperGenerator:
                 func_map = self.classes[classname].methods
             else:
                 func_map = self.namespaces.setdefault(namespace_str, Namespace()).funcs
-            func = func_map.setdefault(name, FuncInfo(classname, name, cname, isconstructor, namespace_str, is_static))
+            func = func_map.setdefault(name, FuncInfo(classname, name, cname, isconstructor, namespace_str, is_static, False))
             func.add_variant(decl, isphantom)
         if classname and isconstructor:
             self.classes[classname].constructor = func
@@ -741,6 +760,86 @@ class RubyWrapperGenerator:
             process_isalgorithm(classinfo)
         for k, v in self.enums.items():
             g_enums[k] = v
+        new_methods = []
+        delete_methods = []
+        for cls_name, classinfo in self.classes.items():
+            for method_name, method in classinfo.methods.items():
+                for var in method.variants:
+                    if var.wrapas:
+                        #print(f"Method {cls_name} {method_name} => {var.wrapas}")
+                        wrapas_method = copy.deepcopy(method)
+                        wrapas_var = copy.deepcopy(var)
+                        wrapas_method.origname = wrapas_method.name
+                        wrapas_method.name = wrapas_var.wrapas
+                        cname_prefix = "::".join(wrapas_method.cname.split("::")[0:-1])
+                        wrapas_method.cname = f"{cname_prefix}::{wrapas_method.name}"
+                        wrapas_method.variants = []
+                        wrapas_method.variants.append(wrapas_var)
+                        add_item = {
+                            "class_name": cls_name,
+                            "method_name": wrapas_method.name,
+                            "method": wrapas_method
+                        }
+                        new_methods.append(add_item)
+                        delete_item = {
+                            "class_name": cls_name,
+                            "method_name": method_name,
+                        }
+                        delete_methods.append(delete_item)
+        for new_method in new_methods:
+            cls_name = new_method["class_name"]
+            method_name = new_method["method_name"]
+            method = new_method["method"]
+            self.classes[cls_name].methods[method_name] = method
+        for delete_method in delete_methods:
+            cls_name = delete_method["class_name"]
+            method_name = delete_method["method_name"]
+            if method_name in self.classes[cls_name].methods:
+                del self.classes[cls_name].methods[method_name]
+        new_methods = []
+        delete_methods = []
+        for ns_name, namespace in self.namespaces.items():
+            for method_name, method in namespace.funcs.items():
+                for var in method.variants:
+                    if var.wrapas:
+                        wrapas_method = copy.deepcopy(method)
+                        wrapas_var = copy.deepcopy(var)
+                        wrapas_method.origname = wrapas_method.cname
+                        wrapas_method.name = wrapas_var.wrapas
+                        cname_prefix = "::".join(wrapas_method.cname.split("::")[0:-1])
+                        wrapas_method.cname = f"{cname_prefix}::{wrapas_method.name}"
+                        wrapas_method.variants = []
+                        wrapas_method.variants.append(wrapas_var)
+                        add_item = {
+                            "ns_name": ns_name,
+                            "method_name": wrapas_method.name,
+                            "method": wrapas_method
+                        }
+                        new_methods.append(add_item)
+                        delete_item = {
+                            "ns_name": ns_name,
+                            "method_name": method_name,
+                        }
+                        delete_methods.append(delete_item)
+        for new_method in new_methods:
+            ns_name = new_method["ns_name"]
+            method_name = new_method["method_name"]
+            method = new_method["method"]
+            self.namespaces[ns_name].funcs[method_name] = method
+        for delete_method in delete_methods:
+            ns_name = delete_method["ns_name"]
+            method_name = delete_method["method_name"]
+            if method_name in self.namespaces[ns_name].funcs:
+                del self.namespaces[ns_name].funcs[method_name]
+
+        # for cls_name, classinfo in self.classes.items():
+        #     for method_name, method in classinfo.methods.items():
+        #         for var in method.variants:
+        #             print(f"Method {cls_name} {method_name}")
+        # for ns_name, namespace in self.namespaces.items():
+        #     for method_name, method in namespace.funcs.items():
+        #         for var in method.variants:
+        #             print(f"Func {ns_name} {method_name}")
 
         # for i, class_name in enumerate(self.classes):
         #     print(f"classes[{i}] {class_name}")
@@ -832,13 +931,10 @@ class RubyWrapperGenerator:
                     if num_supported_variants == 0:
                         continue
                     wrapper_name = func.get_wrapper_name()
-                    func_name = func.name
-                    if func.wrapas:
-                        func_name = func.wrapas
                     if func.is_static:
-                        f.write(f"    rb_define_singleton_method({cClass}, \"{func_name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
+                        f.write(f"    rb_define_singleton_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
                     else:
-                        f.write(f"    rb_define_method({cClass}, \"{func_name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
+                        f.write(f"    rb_define_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
                 f.write(f"}}\n")
         # gen rbopencv_to() and rbopencv_from() for enum types
         with open(f"{out_dir}/rbopencv_enum_converter.hpp", "w") as f:
@@ -851,7 +947,7 @@ class RubyWrapperGenerator:
                 f.write(f"        return false;\n")
                 f.write(f"    int tmp = FIX2INT(obj);\n")
                 f.write(f"    value = static_cast<{cname}>(tmp);\n")
-                f.write(f"    return true;")
+                f.write(f"    return true;\n")
                 f.write(f"}}\n")
                 f.write(f"template<>\n")
                 f.write(f"VALUE rbopencv_from(const {cname}& value){{\n")
