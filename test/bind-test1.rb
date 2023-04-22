@@ -215,6 +215,11 @@ class BindTest < Test::Unit::TestCase
     assert_equal(ssi2.method1(), 2000)
   end
 
+  def test_class_wo_ctor_but_not_interface
+    c3 = CV2::Ns1::Ns11::SubSubC3::create(10)
+    assert_equal(c3.method1, 10)
+  end
+
   def test_wrap_as
     # Global function (CV_WRAP_AS)
     assert_equal(CV2::wrapAsFunc1(10), 20)

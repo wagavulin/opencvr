@@ -111,6 +111,7 @@ class FuncVariant:
         print(f"{indent}docstring: len: {len(self.docstring)}", file=file)
         print(f"{indent}rettype: {self.rettype}", file=file)
 
+g_init_generated_classes = []
 class FuncInfo:
     def __init__(self, classname:str, name:str, cname:str, isconstructor:bool, namespace:str, is_static:bool, is_static_global:bool):
         self.classname:str = classname
@@ -157,6 +158,7 @@ class FuncInfo:
     def get_wrapper_prototype(self):
         full_fname = self.get_wrapper_name()
         if self.isconstructor:
+            g_init_generated_classes.append(self.classname)
             wrapper_fname = "cv_" + self.classname + "_init" # "cv_Ns1_Foo_init"
             return f"static VALUE wrap_{wrapper_fname}(int argc, VALUE *argv, VALUE self)"
         if self.is_static:
@@ -922,7 +924,7 @@ class RubyWrapperGenerator:
                 f.write(f'    VALUE parent_mod = get_parent_module_by_wname(mCV2, "{camel_wname}");\n')
                 f.write(f"    {cClass} = rb_define_class_under(parent_mod, \"{barename}\", rb_cObject);\n")
                 f.write(f"    rb_define_alloc_func({cClass}, wrap_{name}_alloc);\n")
-                if as_shared_ptr:
+                if (classinfo.constructor is None) and (not classinfo.isalgorithm) and (not classinfo.isinterface):
                     pass
                 else:
                     f.write(f"    rb_define_private_method({cClass}, \"initialize\", RUBY_METHOD_FUNC(wrap_cv_{name}_init), -1);\n")
@@ -972,6 +974,12 @@ class RubyWrapperGenerator:
                     funcs.append(func)
             for func in funcs:
                 func.gen_code(f, self.classes)
+            for cls_name, classinfo in self.classes.items():
+                if not cls_name in g_init_generated_classes:
+                    init_prototype = f"static VALUE wrap_cv_{cls_name}_init(int argc, VALUE *argv, VALUE self)"
+                    f.write(f"static VALUE wrap_cv_{cls_name}_init(int argc, VALUE *argv, VALUE self) {{\n")
+                    f.write(f"    return Qnil;\n")
+                    f.write(f"}}\n")
         # gen MethodDef and ConstDef
         with open(f"{out_dir}/rbopencv_modules_content.hpp", "w") as f:
             for ns_name, ns in sorted(self.namespaces.items()):

@@ -255,6 +255,18 @@ CV_EXPORTS_W Ptr<SubSubI2> createSubSubI2() {
     Ptr<SubSubI2> p{new SubSubC2(2000)};
     return p;
 }
+// Class without constructor, but not interface class (like cv::Stitcher)
+class CV_EXPORTS_W SubSubC3 {
+public:
+    CV_WRAP static Ptr<SubSubC3> create(int value1) {
+        auto p = std::make_shared<SubSubC3>();
+        p->m_value1 = value1;
+        return p;
+    }
+    CV_WRAP int method1() { return m_value1; }
+private:
+    int m_value1{300};
+};
 CV_EXPORTS CV_WRAP_AS(ns11wrapAsFunc1) int bindTest_WrapAsFunc(int a) { return a + 10; }
 CV_EXPORTS CV_WRAP_AS(ns11wrapAsFunc2) int bindTest_WrapAsFunc(std::string s) { return static_cast<int>(s.length()); }
 
