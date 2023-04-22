@@ -11,8 +11,8 @@ $unsupported_headers = [
   "opencv2/dnn/utils/inference_engine.hpp",
   "opencv2/dnn/version.hpp",
   "opencv2/features2d.hpp",  # wrap_cv_Feature2D_init
-  "opencv2/ml.hpp",          # wrap_cv_ml_ParamGrid_init
-  "opencv2/ml/ml.inl.hpp",
+  #"opencv2/ml.hpp",          # wrap_cv_ml_ParamGrid_init
+  #"opencv2/ml/ml.inl.hpp",
   "opencv2/stitching.hpp",   # wrap_cv_Stitcher_init
   "opencv2/stitching/detail/blenders.hpp",
   "opencv2/stitching/detail/camera.hpp",
