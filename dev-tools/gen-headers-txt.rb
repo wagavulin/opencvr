@@ -4,7 +4,7 @@ $unsupported_headers = [
   "opencv2/core/cuda.hpp",
   "opencv2/core/cuda.inl.hpp",
   "opencv2/core/cuda_types.hpp",
-  "opencv2/core/types.hpp",  # wrap_cv_Moments_init
+  #"opencv2/core/types.hpp",  # wrap_cv_Moments_init
   "opencv2/dnn/dnn.hpp",     # wrap_XXX_init
   "opencv2/dnn/dnn.inl.hpp",
   "opencv2/dnn/layer.hpp",
