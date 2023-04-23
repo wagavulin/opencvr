@@ -385,6 +385,13 @@ class FuncInfo:
                     # For example, "HOGDescriptor_HistogramNormType"
                     # It should be changed to "HOGDescriptor::HistogramNormType"
                     rvd_raw_types[-1] = "::".join(rvd_raw_types[-1].split("_"))
+                method_enum_conv_list = [
+                    {"method": "cv::Stitcher::create", "rvd_raw_type": "cv::FileStorage::Mode", "conv_to": "cv::Stitcher::Mode"},
+                ]
+                for method_enum in method_enum_conv_list:
+                    if self.cname == method_enum["method"] and rvd_raw_types[-1] == method_enum["rvd_raw_type"]:
+                        rvd_raw_types[-1] = method_enum["conv_to"]
+                        break
                 rvd_raw_var_names.append(f"raw_{a.name}")
                 if not a.tp[-1] == "*":
                     # If pointer arg has default value, it's always 0 or nullptr (Is this correct?)

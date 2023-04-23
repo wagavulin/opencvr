@@ -818,6 +818,8 @@ static VALUE get_parent_module_by_wname(VALUE top_module, const std::string wnam
     // have "_".
     if (wname == "Ml_Ann_MLP") {
         modnames = {"Ml"};
+    } else if (wname == "Simpleblobdetector_Params") {
+        modnames = {"SimpleBlobDetector"};
     }
     VALUE parent_mod = top_module;
     VALUE submod;

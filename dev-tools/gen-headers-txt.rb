@@ -10,21 +10,18 @@ $unsupported_headers = [
   "opencv2/dnn/layer.hpp",
   "opencv2/dnn/utils/inference_engine.hpp",
   "opencv2/dnn/version.hpp",
-  "opencv2/features2d.hpp",  # wrap_cv_Feature2D_init
+  "opencv2/features2d.hpp",  # Compilable with note about "Class Feature2D has more than 1 base class"
   #"opencv2/ml.hpp",          # wrap_cv_ml_ParamGrid_init
   #"opencv2/ml/ml.inl.hpp",
-  "opencv2/stitching.hpp",   # wrap_cv_Stitcher_init
+  #"opencv2/stitching.hpp",   # wrap_cv_Stitcher_init
   "opencv2/stitching/detail/blenders.hpp",
   "opencv2/stitching/detail/camera.hpp",
-  "opencv2/stitching/detail/camera.hpp",
   "opencv2/stitching/detail/exposure_compensate.hpp",
-  "opencv2/stitching/detail/matchers.hpp",
   "opencv2/stitching/detail/matchers.hpp",
   "opencv2/stitching/detail/motion_estimators.hpp",
   "opencv2/stitching/detail/seam_finders.hpp",
   "opencv2/stitching/detail/util.hpp",
   "opencv2/stitching/detail/util_inl.hpp",
-  "opencv2/stitching/detail/warpers.hpp",
   "opencv2/stitching/detail/warpers.hpp",
   "opencv2/stitching/detail/warpers_inl.hpp",
   "opencv2/stitching/warpers.hpp",
