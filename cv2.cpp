@@ -149,7 +149,7 @@ public:
             //TRACE_PRINTF("  sizes[%d]: %d\n", i, sizes[i]);
         }
         if (data) {
-            throw std::runtime_error("[NumpyAllocator::allocate] data is not NULL");
+            return stdAllocator->allocate(dims0, sizes, type, data, step, flags, usageFlags);
         }
         int depth = CV_MAT_DEPTH(type);
         int cn = CV_MAT_CN(type);
