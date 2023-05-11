@@ -58,25 +58,19 @@ Below components are required to build opencvr:
   * recommend to use rbenv
 * Python (>3.x)
 * OpenCV
-  * `libopencv-dev` (apt package on Ubuntu-20.04)
+  * `libopencv-dev` (apt package on Ubuntu-22.04)
   * `opencv` (brew package on macOS)
 
 #### Build
 
-Ubuntu
-
-
 ```
 $ make -C dummycv  # Generate dummycv/libdummycv.so
+$ mv dummycv/libdummycv.so . # This step is required only on macOS
 $ ./dev-tools/gen-headers-txt.rb > headers.txt
 $ ./gen2rb.py      # Generate files under autogen/
 $ ruby extconf.rb  # Generate Makefile
 $ make             # Generate cv2.so
 ```
-
-macOS
-
-Not supported yet
 
 #### Run test
 
