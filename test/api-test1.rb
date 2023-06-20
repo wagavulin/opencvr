@@ -1,11 +1,20 @@
 #!/usr/bin/env ruby
 
 $:.unshift(File.dirname(__FILE__) + "/..")
+require 'fileutils'
 require 'numo/narray'
 require 'cv2'
 require 'test/unit'
 
 class ApiTest < Test::Unit::TestCase
+  def setup
+    @script_dir = File.dirname(__FILE__)
+    @in_dir = "#{@script_dir}/../opencvr-test/input"
+    @ex_dir = "#{@script_dir}/../opencvr-test/expected"
+    @out_dir = "#{@script_dir}/out"
+    FileUtils.mkdir_p(@out_dir)
+  end
+
   def test_version
     assert_equal(CV2::getVersionMajor.class, Integer)
     assert_equal(CV2::getVersionMinor.class, Integer)
@@ -39,5 +48,23 @@ class ApiTest < Test::Unit::TestCase
     img1[0..-1, 0..-1, 1] = 255
     img2 = CV2::hconcat([img0, img1])
     assert_equal(img2.shape, [200, 400, 3])
+  end
+
+  def test_findContours1
+    img_c = CV2.imread("#{@in_dir}/opencv-logo.png")
+    img_c2 = img_c.clone()
+    img_g = CV2.cvtColor(img_c2, CV2::COLOR_BGR2GRAY)
+    contours, hierarchy = CV2.findContours(img_g, CV2::RETR_TREE, CV2::CHAIN_APPROX_SIMPLE)
+    contours.each{|cnt|
+      cnt.to_a.each{|pt|
+        CV2.circle(img_c2, pt[0], 1, [0,0,255], 1)
+      }
+      center_f, radius_f = CV2.minEnclosingCircle(cnt)
+      center_i = Numo::Int32.cast(center_f)
+      radius_i = radius_f.to_i
+      CV2.circle(img_c2, center_i.to_a, radius_i, [255,0,0])
+    }
+    CV2::imwrite("#{@out_dir}/findContours1.png", img_c2)
+    assert_equal(CV2.imread("#{@out_dir}/findContours1.png"), CV2.imread("#{@ex_dir}/findContours1.png"))
   end
 end
