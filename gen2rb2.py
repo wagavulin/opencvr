@@ -19,12 +19,28 @@ def generate_code(api:CvApi):
             print(f"init_submodule(\"{ns.name}\", methods_{nsname_us}, consts_{nsname_us});", file=f)
     with open(f"{out_dir}/rbopencv_modules_content.hpp", "w") as f:
         for ns in sorted_namespaces:
-            wname = "_".join(ns.name.split(".")[1:])
-            wname = ns.name.replace(".", "_")
-            print(f"static MethodDef methods_{wname}[] = {{", file=f)
+            name_us = ns.name.replace(".", "_")
+            print(f"static MethodDef methods_{name_us}[] = {{", file=f)
             print(f"    {{NULL, NULL}}", file=f)
             print(f"}};", file=f)
-            print(f"static ConstDef consts_{wname}[] = {{", file=f)
+            print(f"static ConstDef consts_{name_us}[] = {{", file=f)
+            for cvenum in ns.enums:
+                if cvenum.isscoped:
+                    for v in cvenum.values:
+                        def_name = "_".join(v.name.split(".")[-2:])
+                        def_value = v.name.replace(".", "::")
+                        print('    {"%s", static_cast<long>(%s)},' % (def_name, def_value), file=f)
+                else:
+                    for v in cvenum.values:
+                        def_name = v.name.split(".")[-1]
+                        def_value = v.name.replace(".", "::")
+                        print('    {"%s", static_cast<long>(%s)},' % (def_name, def_value), file=f)
+            for cvklass in ns.klasses:
+                for cvenum in cvklass.enums:
+                    for v in cvenum.values:
+                        def_name = "_".join(v.name.split(".")[-2:])
+                        def_value = v.name.replace(".", "::")
+                        print('    {"%s", static_cast<long>(%s)},' % (def_name, def_value), file=f)
             print(f"    {{NULL, 0}}", file=f)
             print(f"}};", file=f)
     with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
@@ -55,11 +71,6 @@ with open(headers_txt) as f:
         headers.append(line.split("#")[0].strip())
 
 api = hdr_parser_wrapper.parse_headers(headers)
-for _, cvns in api.cvnamespaces.items():
-    print(f"NS {cvns.name}")
-for _, cvklass in api.cvklasses.items():
-    print(f" C {cvklass.name}")
-#hdr_parser_wrapper._show_all_namespaces(api); exit(0)
 os.makedirs(out_dir, exist_ok=True)
 with open(f"{out_dir}/rbopencv_include.hpp", "w") as f:
     for hdr in headers:
