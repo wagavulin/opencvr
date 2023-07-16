@@ -27,14 +27,9 @@ class CvFunc:
     klass:"CvKlass|None"     # For member func. None if it's global function
     name_cpp:str             # name in C++ API
     name:str                 # name of CV_WRAP_AS or CV_EXPORTS_AS if specified, else same as name
+    rettype:str
     isstatic:bool
     variants:list[CvVariant]
-    #wrap_as:str|None
-    #isconst:bool
-    #isstatic:bool
-    #isvirtual:bool
-    #ispurevirtual:bool
-    #args:list[CvArg]
 
 @dataclasses.dataclass
 class CvEnumerator:
@@ -137,6 +132,7 @@ def parse_headers(headers:list[str]) -> CvApi:
                     enum.values.append(value)
                 cvenums[enum_name] = enum
             else: # func
+                rettype = decl[4] if decl[4] else ""
                 wrap_as = None
                 isconst = False
                 isstatic = False
@@ -191,7 +187,8 @@ def parse_headers(headers:list[str]) -> CvApi:
                 if name in cvfuncs.keys():
                     func = cvfuncs[name]
                 else:
-                    func = CvFunc(filename=hdr, ns=None, klass=None, name_cpp=decl0, name=name, isstatic=isstatic, variants=[])
+                    func = CvFunc(filename=hdr, ns=None, klass=None, name_cpp=decl0, name=name,
+                        rettype=rettype,isstatic=isstatic, variants=[])
                     cvfuncs[name] = func
                 func.variants.append(variant)
 
