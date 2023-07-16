@@ -7,6 +7,12 @@ from hdr_parser_wrapper import CvApi, CvArg, CvEnum, CvEnumerator, CvFunc, CvKla
 
 out_dir = "./autogen"
 
+def gen_wrapper_func_name(func:CvFunc):
+    wrapper_func_name = "rbopencv_" + func.name.replace(".", "_")
+    if func.isstatic:
+        wrapper_func_name += "_static"
+    return wrapper_func_name
+
 def generate_code(api:CvApi):
     sorted_namespaces:list[CvNamespace] = []
     for _, ns in api.cvnamespaces.items():
@@ -21,6 +27,10 @@ def generate_code(api:CvApi):
         for ns in sorted_namespaces:
             name_us = ns.name.replace(".", "_")
             print(f"static MethodDef methods_{name_us}[] = {{", file=f)
+            for cvfunc in ns.funcs:
+                wrapper_func_name = gen_wrapper_func_name(cvfunc)
+                funcname_rb = cvfunc.name.split(".")[-1]
+                print('    {"%s", %s},' % (funcname_rb, wrapper_func_name), file=f)
             print(f"    {{NULL, NULL}}", file=f)
             print(f"}};", file=f)
             print(f"static ConstDef consts_{name_us}[] = {{", file=f)
@@ -42,7 +52,7 @@ def generate_code(api:CvApi):
                         def_value = v.name.replace(".", "::")
                         print('    {"%s", static_cast<long>(%s)},' % (def_name, def_value), file=f)
             print(f"    {{NULL, 0}}", file=f)
-            print(f"}};", file=f)
+            print(f"}};\n", file=f)
     with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
         for ns in sorted_namespaces:
             if ns.name == "cv":
@@ -57,7 +67,13 @@ def generate_code(api:CvApi):
     with open(f"{out_dir}/rbopencv_enum_converter.hpp", "w") as f:
         pass
     with open(f"{out_dir}/rbopencv_funcs.hpp", "w") as f:
-        pass
+        for _, ns in api.cvnamespaces.items():
+            for cvfunc in ns.funcs:
+                wrapper_func_name = gen_wrapper_func_name(cvfunc)
+                print(f'static VALUE {wrapper_func_name}(int argc, VALUE *argv, VALUE klass)', file=f)
+                print(f'{{', file=f)
+                print(f'    return Qnil;', file=f)
+                print(f'}}', file=f)
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:

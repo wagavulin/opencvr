@@ -52,6 +52,16 @@ static int dcv_trace_printf(const char *filename, int line, const char *fmt, ...
 
 namespace cv {
 
+namespace enumtest1 {
+    enum E1 { AAA };       // CV2::Enumtest1::AAA
+    enum { BBB };          // CV2::Enumtest1::BBB
+    class CV_EXPORTS_W C1 {
+    public:
+        enum E2 { CCC };   // CV2::Enumtest1::C1_CCC
+    };
+    enum class E3 { DDD }; // CV2::Enumtest1::E3_DDD
+}
+
 // global functions for test arguments and retval
 CV_EXPORTS_W int bindTest1(int a) { return a+a; } // Simple function
 // CV_EXPORTS_W double bindTest1(int a, CV_IN_OUT Point& b, CV_OUT int* c, int d=10, RNG* rng=0, double e=1.2);

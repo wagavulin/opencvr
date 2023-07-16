@@ -13,17 +13,28 @@ class CvArg:
     outputarg:bool
 
 @dataclasses.dataclass
-class CvFunc:
-    filename:str           # header filename (for debug)
-    ns:"CvNamespace|None"  # For global function. None if it's a member func
-    klass:"CvKlass|None"   # For member func. None if it's global function
-    name:str
+class CvVariant:
     wrap_as:str|None
     isconst:bool
-    isstatic:bool
     isvirtual:bool
     ispurevirtual:bool
     args:list[CvArg]
+
+@dataclasses.dataclass
+class CvFunc:
+    filename:str             # header filename (for debug)
+    ns:"CvNamespace|None"    # For global function. None if it's a member func
+    klass:"CvKlass|None"     # For member func. None if it's global function
+    name_cpp:str             # name in C++ API
+    name:str                 # name of CV_WRAP_AS or CV_EXPORTS_AS if specified, else same as name
+    isstatic:bool
+    variants:list[CvVariant]
+    #wrap_as:str|None
+    #isconst:bool
+    #isstatic:bool
+    #isvirtual:bool
+    #ispurevirtual:bool
+    #args:list[CvArg]
 
 @dataclasses.dataclass
 class CvEnumerator:
@@ -171,9 +182,18 @@ def parse_headers(headers:list[str]) -> CvApi:
                     cvarg = CvArg(tp=tp, name=arg_tuple[1], defval=arg_tuple[2], inputarg=inputarg, outputarg=outputarg)
                     args.append(cvarg)
 
-                func = CvFunc(filename=hdr, ns=None, klass=None, name=decl0, wrap_as=wrap_as, isconst=isconst,
-                    isstatic=isstatic, isvirtual=isvirtual, ispurevirtual=ispurevirtual, args=args)
-                cvfuncs[decl0] = func
+                variant = CvVariant(wrap_as=wrap_as, isconst=isconst, isvirtual=isvirtual,
+                    ispurevirtual=ispurevirtual, args=args)
+                if wrap_as:
+                    name = ".".join(decl0.split(".")[0:-1]) + "." + wrap_as
+                else:
+                    name = decl0
+                if name in cvfuncs.keys():
+                    func = cvfuncs[name]
+                else:
+                    func = CvFunc(filename=hdr, ns=None, klass=None, name_cpp=decl0, name=name, isstatic=isstatic, variants=[])
+                    cvfuncs[name] = func
+                func.variants.append(variant)
 
     # Append defined namespaces
     for nsname in parser.namespaces:
