@@ -67,16 +67,20 @@ class CvApi:
     cvklasses:dict[str,CvKlass]
     cvfuncs:dict[str,CvFunc]
 
+# Returns the string representaion of parent class. "" if no parent.
 def _parse_parent_klass_str(str_parent_klasses:str, str_this_klass:str) -> str|None:
+    if str_parent_klasses.startswith(": "):
+        str_parent_klasses = str_parent_klasses[2:]
     parent_class_strs = str_parent_klasses.split(",")
     parent_class_str = None
     if len(parent_class_strs) == 1:
-        if parent_class_strs[0].startswith(": "):
-            parent_class_str = parent_class_strs[0][2:].replace("::", ".") # remove the beginning ": "
-        else:
-            parent_class_str = parent_class_strs[0].replace("::", ".")
-        if len(parent_class_strs) >= 2:
-            print(f"[Warning] {str_this_klass} has multipe parenet clasess. Only the first one ({parent_class_str}) is used")
+        parent_class_str = parent_class_strs[0].replace("::", ".")
+    elif len(parent_class_strs) >= 2:
+        parent_class_str = parent_class_strs[0].replace("::", ".")
+        print(f"[Warning] {str_this_klass} has multipe parenet clasess. Only the first one ({parent_class_str}) is used")
+    else:
+        print(f"[Error] parent_class_str shall not be None (\"\" for non-parent class)")
+        exit(1)
     return parent_class_str
 
 def parse_headers(headers:list[str]):
