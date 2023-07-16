@@ -83,7 +83,7 @@ def _parse_parent_klass_str(str_parent_klasses:str, str_this_klass:str) -> str|N
         exit(1)
     return parent_class_str
 
-def parse_headers(headers:list[str]):
+def parse_headers(headers:list[str]) -> CvApi:
     cvklasses:dict[str,CvKlass] = {}
     cvnamespaces:dict[str,CvNamespace] = {}
     cvenums:dict[str,CvEnum] = {}
@@ -175,10 +175,12 @@ def parse_headers(headers:list[str]):
                     isstatic=isstatic, isvirtual=isvirtual, ispurevirtual=ispurevirtual, args=args)
                 cvfuncs[decl0] = func
 
+    # Append defined namespaces
     for nsname in parser.namespaces:
         ns = CvNamespace(nsname, klasses=[], enums=[], funcs=[])
         cvnamespaces[nsname] = ns
 
+    # Construct parent/child class structure
     for _, cvklass in cvklasses.items():
         if cvklass.str_parent_klass:
             if not cvklass.str_parent_klass in cvklasses.keys():
@@ -189,6 +191,7 @@ def parse_headers(headers:list[str]):
             cvklass.parent_klass = pklass
             pklass.child_klasses.append(cvklass)
 
+    # Construct tree structure of definition: enum <-> namespace or class
     for _, cvenum in cvenums.items():
         ns_or_klass = ".".join(cvenum.name.split(".")[0:-1])
         if ns_or_klass in parser.namespaces:
@@ -222,6 +225,7 @@ def parse_headers(headers:list[str]):
             klass.enums.append(cvenum)
             cvenum.klass = klass
 
+    # Construct tree structure of definition: class <-> namespace or class
     sorted_klassnames = sorted(cvklasses.keys())
     for klassname in sorted_klassnames:
         cvklass = cvklasses[klassname]
@@ -240,6 +244,7 @@ def parse_headers(headers:list[str]):
             print(f"[Error] class {cvklass.name} is not defined in neither namespaces nor other classes")
             exit(0)
 
+    # Construct tree structure of definition: func <-> namespace or class
     for _, cvfunc in cvfuncs.items():
         ns_or_klass = ".".join(cvfunc.name.split(".")[0:-1])
         if ns_or_klass in cvnamespaces.keys():
@@ -255,6 +260,12 @@ def parse_headers(headers:list[str]):
         else:
             print(f"[Error] FUNC {cvfunc.name} is not defined in neither namespaces nor other classes")
             exit(0)
+
+    # Check unsupported structures
+    for _, cvenum in cvenums.items():
+        if cvenum.klass and cvenum.isscoped:
+            print(f"[Error] {cvenum.name}: scoped enum in class is not supported: {cvenum.filename}")
+            exit(1)
 
     cvapi = CvApi(cvnamespaces=cvnamespaces, cvenums=cvenums, cvklasses=cvklasses, cvfuncs=cvfuncs)
     return cvapi
