@@ -219,7 +219,7 @@ class CppHeaderParser(object):
         if add_star:
             arg_type += "*"
 
-        arg_type = self.batch_replace(arg_type, [("std::", ""), ("cv::", ""), ("::", "_")])
+        #arg_type = self.batch_replace(arg_type, [("std::", ""), ("cv::", ""), ("::", "_")])
 
         return arg_type, arg_name, modlist, argno
 

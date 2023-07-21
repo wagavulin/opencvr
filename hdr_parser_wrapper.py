@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
+import enum
 import dataclasses
-import sys
+import re
 import hdr_parser
 
 @dataclasses.dataclass
 class CvArg:
     tp:str
+    tp_qname:str|None
     name:str
     defval:str
     inputarg:bool
@@ -28,6 +30,7 @@ class CvFunc:
     name_cpp:str             # name in C++ API
     name:str                 # name of CV_WRAP_AS or CV_EXPORTS_AS if specified, else same as name
     rettype:str
+    rettype_qname:str|None
     isstatic:bool
     variants:list[CvVariant]
 
@@ -66,12 +69,28 @@ class CvNamespace:
     enums:list[CvEnum]
     funcs:list[CvFunc]
 
+class TypedefType(enum.Enum):
+    CLASS = enum.auto()
+    FUNC = enum.auto()
+    ENUM = enum.auto()
+    OTHER = enum.auto() # int, short, std::vector<int>, etc.
+
+@dataclasses.dataclass
+class CvTypedef:
+    tdtype:TypedefType
+    name:str
+    klass:CvKlass|None
+    func:CvFunc|None
+    enum:CvEnum|None
+    other:str|None
+
 @dataclasses.dataclass
 class CvApi:
     cvnamespaces:dict[str,CvNamespace]
     cvenums:dict[str,CvEnum]
     cvklasses:dict[str,CvKlass]
     cvfuncs:dict[str,CvFunc]
+    cvtypedefs:dict[str,CvTypedef]
 
 # Returns the string representaion of parent class. "" if no parent.
 def _parse_parent_klass_str(str_parent_klasses:str, str_this_klass:str) -> str|None:
@@ -89,7 +108,7 @@ def _parse_parent_klass_str(str_parent_klasses:str, str_this_klass:str) -> str|N
         exit(1)
     return parent_class_str
 
-def parse_headers(headers:list[str]) -> CvApi:
+def _parse_headers(headers:list[str]) -> CvApi:
     cvklasses:dict[str,CvKlass] = {}
     cvnamespaces:dict[str,CvNamespace] = {}
     cvenums:dict[str,CvEnum] = {}
@@ -122,9 +141,9 @@ def parse_headers(headers:list[str]) -> CvApi:
                 elif len(ss) == 3:
                     enum_name = ss[2]
                     isscoped = True
-                if not enum_name.startswith("cv."):
-                    # Exclude enums which are not under cv namespace
-                    # e.g. CpuFeatures, cvflann.flann_algorithm_t, etc.
+                if not (enum_name.startswith("cv.") or enum_name.startswith("cvflann.")):
+                    # Exclude enums which are not under cv nor cvflann namespace
+                    # e.g. CpuFeatures, etc.
                     continue
                 enum = CvEnum(filename=hdr, ns=None, klass=None, name=enum_name, isscoped=isscoped, values=[])
                 for value_info in decl[3]:
@@ -175,7 +194,7 @@ def parse_headers(headers:list[str]) -> CvApi:
                             pass # no need to handle lvalueref
                         else:
                             print(f"[Warning] {decl0} has unsupported arg attribute: {arg_attr}")
-                    cvarg = CvArg(tp=tp, name=arg_tuple[1], defval=arg_tuple[2], inputarg=inputarg, outputarg=outputarg)
+                    cvarg = CvArg(tp=tp, tp_qname=None, name=arg_tuple[1], defval=arg_tuple[2], inputarg=inputarg, outputarg=outputarg)
                     args.append(cvarg)
 
                 variant = CvVariant(wrap_as=wrap_as, isconst=isconst, isvirtual=isvirtual,
@@ -188,7 +207,7 @@ def parse_headers(headers:list[str]) -> CvApi:
                     func = cvfuncs[name]
                 else:
                     func = CvFunc(filename=hdr, ns=None, klass=None, name_cpp=decl0, name=name,
-                        rettype=rettype,isstatic=isstatic, variants=[])
+                        rettype=rettype, rettype_qname=None, isstatic=isstatic, variants=[])
                     cvfuncs[name] = func
                 func.variants.append(variant)
 
@@ -283,18 +302,197 @@ def parse_headers(headers:list[str]) -> CvApi:
         if cvenum.klass and cvenum.isscoped:
             print(f"[Error] {cvenum.name}: scoped enum in class is not supported: {cvenum.filename}")
             exit(1)
+    for _, cvklass in cvklasses.items():
+        if cvklass.ns:
+            continue
+        elif cvklass.klass:
+            if cvklass.klass.ns:
+                continue
+            else:
+                print(f"[Error] class inside class inside class is not supported: {cvklass} -> {cvklass.klass} -> ?")
+                exit(1)
+        else:
+            pass # NotReached
 
-    cvapi = CvApi(cvnamespaces=cvnamespaces, cvenums=cvenums, cvklasses=cvklasses, cvfuncs=cvfuncs)
+    # Add some classes/structs which are not declared as CV_EXPORTS_W.
+    # They are necessary because they are used with typedef
+    klass_IndexParams = CvKlass(filename="(root)/opencv2/flann/miniflann.hpp", ns=cvnamespaces["cv.flann"], klass=None, name="cv.flann.IndexParams",
+        klasses=[], enums=[], funcs=[], str_parent_klass=None, parent_klass=None, child_klasses=[], no_bind=True)
+    cvklasses["cv.flann.IndexParams"] = klass_IndexParams
+    klass_SearchParams = CvKlass(filename="(root)/opencv2/flann/miniflann.hpp", ns=cvnamespaces["cv.flann"], klass=None, name="cv.flann.SearchParams",
+        klasses=[], enums=[], funcs=[], str_parent_klass=klass_IndexParams.name, parent_klass=klass_IndexParams, child_klasses=[], no_bind=True)
+    cvklasses["cv.flann.SearchParams"] = klass_SearchParams
+    klass_IndexParams.child_klasses.append(klass_SearchParams)
+
+    # Manually add typedefs because hdr_parser.py does not provide them
+    cvtypedefs:dict[str,CvTypedef] = {}
+    cvtypedefs["cv.FeatureDetector"] = CvTypedef(tdtype=TypedefType.CLASS, name="cv.FeatureDetector", klass=cvklasses["cv.Feature2D"],
+        func=None, enum=None, other=None)
+    cvtypedefs["cv.DescriptorExtractor"] = CvTypedef(tdtype=TypedefType.CLASS, name="cv.DescriptorExtractor", klass=cvklasses["cv.Feature2D"],
+        func=None, enum=None, other=None)
+    cvtypedefs["cv.dnn.Net.LayerId"] = CvTypedef(tdtype=TypedefType.CLASS, name="cv.dnn.Net.LayerId", klass=cvklasses["cv.dnn.DictValue"],
+        func=None, enum=None, other=None)
+    cvtypedefs["cv.dnn.MatShape"] = CvTypedef(tdtype=TypedefType.OTHER, name="cv.dnn.MatShape", klass=None, func=None, enum=None, other="vector<int>")
+
+    cvapi = CvApi(cvnamespaces=cvnamespaces, cvenums=cvenums, cvklasses=cvklasses, cvfuncs=cvfuncs, cvtypedefs=cvtypedefs)
     return cvapi
 
-# headers_txt = "./headers.txt"
-# headers = []
-# with open(headers_txt) as f:
-#     for line in f:
-#         line = line.strip()
-#         if line.startswith("#"):
-#             continue
-#         headers.append(line.split("#")[0].strip())
+def gen_supported_primitive_types() -> list[str]:
+    supported_primitive_types = [
+        "char", "short", "int", "long", "float", "double", "int64", "bool", "void", "uchar", "size_t",
+        "string", "c_string",
+    ]
+    return supported_primitive_types
 
-#cvapi = parse_headers()
-#show_all_funcs(cvapi)
+def gen_supported_typenames(api:CvApi) -> list[str]:
+    supported_cv_basic_types = [
+        "cv.Mat", "cv.UMat",
+        "cv.Rect", "cv.Rect2d",
+        "cv.Point", "cv.Point2d", "cv.Point2f", "cv.Point3f",
+        "cv.Size", "cv.Size2i", "cv.Size2f",
+        "cv.Vec4f", "cv.Vec6f", "cv.Vec3d",
+        "cv.Scalar",
+        "cv.RotatedRect",
+        "cv.Vec2i", "cv.Vec3i", "cv.Vec2d",
+        "cv.String",
+    ]
+
+    declared_typenames:list[str] = []
+    for _, cvenum in api.cvenums.items():
+        declared_typenames.append(cvenum.name)
+    for _, cvklass in api.cvklasses.items():
+        declared_typenames.append(cvklass.name)
+    for _, cvtypedef in api.cvtypedefs.items():
+        declared_typenames.append(cvtypedef.name)
+
+    supported_typenames = []
+    for t in declared_typenames:
+        supported_typenames.append(t)
+    for t in supported_cv_basic_types:
+        supported_typenames.append(t)
+    return supported_typenames
+
+def check_qname(tp:str, cvfunc:CvFunc, supported_primitive_types:list[str], supported_typenames:list[str]) -> str|None:
+    if tp == "":  # for constructor rettype
+        return ""
+    template = "%s"
+    tp = tp.replace("std::", "")
+    if tp[-1] == "*":
+        template = "%s*"
+        tp = tp[0:-1]
+    main_type = tp # main_type is Xxx of vector<Xxx>, Ptr<Xxx>, etc.
+    m = re.match("vector_(.+)", tp)
+    if m:
+        template = "vector<%s>"
+        main_type = m.group(1)
+    m = re.match("vector_vector_(.+)", tp)
+    if m:
+        template = "vector<vector<%s>>"
+        main_type = m.group(1)
+    m = re.match("vector<(.+)>", tp)
+    if m:
+        template = "vector<%s>"
+        main_type = m.group(1)
+    m = re.match("vector<vector<(.+)> *>", tp)
+    if m:
+        template = "vector<vector<%s>>"
+        main_type = m.group(1)
+    m = re.match("Ptr<(.+)>", tp)
+    if m:
+        template = "Ptr<%s>"
+        # Special handling for ANN_MLP. It's not ANN.MLP
+        if m.group(1) == "ANN_MLP":
+            main_type = m.group(1)
+        else:
+            main_type = m.group(1).replace("_", ".")
+
+    main_type = main_type.replace("::", ".")
+    if main_type in supported_primitive_types:
+        return template % main_type
+    if main_type.startswith("cv."):
+        if main_type in supported_typenames:
+            return template % main_type
+    else:
+        if main_type in supported_typenames:
+            return template % main_type
+        elif "cv." + main_type in supported_typenames:
+            return template % ("cv." + main_type)
+
+    # funcname_qualifier
+    #   if func is a global function (cv.NsName1.func1) => "cv.NsName1"
+    #   if func is a member function (cv.NsName1.Class1.func1) => "cv.NsName1.Class1"
+    if cvfunc.ns:
+        funcname_qualifier = cvfunc.ns.name
+    elif cvfunc.klass:
+        funcname_qualifier = cvfunc.klass.name
+    else:
+        funcname_qualifier = ""
+    # qualifiler_elems: ["cv", "NsName1", "Class1"]
+    qualifier_elems = funcname_qualifier.split(".")
+    # qualifier_candidates: ["cv.NsName1.Class1", "cv.NsName1", "cv"]
+    qualifier_candidates = [".".join(qualifier_elems[0:i]) for i in range(len(qualifier_elems), 0, -1)]
+    for qualifier_candidate in qualifier_candidates:
+        qname = qualifier_candidate + "." + main_type
+        if qname in supported_typenames:
+            return template % qname
+    return None
+
+def _dump_api(cvapi:CvApi):
+    with open("tmp-cvnamespaces.txt", "w") as f:
+        for _, cvns in cvapi.cvnamespaces.items():
+            print(f"{cvns.name}", file=f)
+    with open("tmp-cvklasses.txt", "w") as f:
+        for _, cvklass in cvapi.cvklasses.items():
+            print(f"{cvklass.name}", file=f)
+    with open("tmp-cvenums.txt", "w") as f:
+        for _, cvenum in cvapi.cvenums.items():
+            print(f"{cvenum.name}", file=f)
+    with open("tmp-typedefs.txt", "w") as f:
+        for _, cvtypedef in cvapi.cvtypedefs.items():
+            print(f"{cvtypedef.name}", file=f)
+    with open("tmp-funcs.txt", "w") as f:
+        for _, cvfunc in cvapi.cvfuncs.items():
+            print(f"{cvfunc.name} {cvfunc.rettype} {cvfunc.rettype_qname}", file=f)
+            for var in cvfunc.variants:
+                for arg in var.args:
+                    print(f"  {arg.tp} {arg.tp_qname}", file=f)
+
+def parse_headers(headers:list[str]) -> CvApi:
+    cvapi = _parse_headers(headers)
+    supported_primitive_types = gen_supported_primitive_types()
+    supported_typenames = gen_supported_typenames(cvapi)
+    # Set qname of each arg
+    for _, cvfunc in cvapi.cvfuncs.items():
+        for var in cvfunc.variants:
+            rettype_qname = check_qname(cvfunc.rettype, cvfunc, supported_primitive_types, supported_typenames)
+            if rettype_qname is None:
+                print(f"[Error] Could not find qname: {cvfunc.rettype} {cvfunc.name}")
+                exit(1)
+            cvfunc.rettype_qname = rettype_qname
+            for arg in var.args:
+                tp_qname = check_qname(arg.tp, cvfunc, supported_primitive_types, supported_typenames)
+                if tp_qname is None:
+                    print(f"[Error] Could not find qname: {arg.tp} {cvfunc.name}")
+                    exit(1)
+                arg.tp_qname = tp_qname
+
+    _dump_api(cvapi)
+    return cvapi
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) == 1:
+        headers_txt = "./headers.txt"
+    elif len(sys.argv) == 2:
+        headers_txt = sys.argv[1]
+    else:
+        print(f"usage: hdr_parser_wraper.py <headers.txt>", file=sys.stderr)
+        exit(1)
+    headers = []
+    with open(headers_txt, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("#"):
+                continue
+            headers.append(line.split("#")[0].strip())
+    cvapi = parse_headers(headers)
