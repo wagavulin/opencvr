@@ -11,12 +11,16 @@ from hdr_parser_wrapper import (CvApi, CvArg, CvEnum, CvEnumerator, CvFunc,
 out_dir = "./autogen"
 
 g_supported_rettypes = [
+    "void",
     "int",
-    "Mat",
+    "cv.Mat",
 ]
 g_supported_argtypes = [
     "int",
-    "String",
+    "float",
+    "string",
+    "cv.String",
+    "cv.Mat",
 ]
 
 def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
@@ -25,11 +29,13 @@ def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
     for v in func.variants:
         supported = True
         msg = ""
-        if not func.rettype in g_supported_rettypes:
+        if not func.rettype_qname in g_supported_rettypes:
             supported = False
             msg = f"rettype ({func.rettype}) is not supported"
         for i, arg in enumerate(v.args):
-            if not arg.tp in g_supported_argtypes:
+            if arg.tp_qname in g_supported_argtypes:
+                pass # supported
+            else:
                 supported = False
                 msg = f"arg[{i}] ({arg.tp}) is not supported"
         stat = (supported, msg)
@@ -57,7 +63,7 @@ def get_namespace_of_func(func:CvFunc):
         exit(1)
     return ret
 
-def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc):
+def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
     support_stats = check_func_variants_support_status(cvfunc)
     num_supported_variants = 0
     supported_vars:list[CvVariant] = []
@@ -68,6 +74,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc):
             supported_vars.append(cvfunc.variants[i])
     if num_supported_variants == 0:
         return
+    print(f"generate wrapper of {cvfunc.name}", file=log_f)
     supported_vars = sorted(supported_vars, reverse=True, key=lambda var: len(var.args))
     wrapper_func_name = gen_wrapper_func_name(cvfunc)
     is_constructor = cvfunc.klass and cvfunc.klass.name.split(".")[-1] == cvfunc.name.split(".")[-1] and cvfunc.rettype == ""
@@ -117,7 +124,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc):
         ordered_args.extend(tmp_optional_args)
 
         # Collect values
-        if cvfunc.rettype:
+        if cvfunc.rettype and not cvfunc.rettype == "void":
             rh_raw_var_names.append("raw_retval")
         # C++ API calling is based on original arguments order
         for a in v.args:
@@ -241,7 +248,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc):
             args_str = ", ".join(cac_args)
             f.write(f"            ptr->v = new {ctor_cname}({args_str});\n")
         else:
-            if not cvfunc.rettype == "":
+            if not cvfunc.rettype == "void":
                 f.write(f"            {cvfunc.rettype} raw_retval;\n")
                 f.write(f"            raw_retval = ")
             else:
@@ -340,10 +347,11 @@ def generate_code(api:CvApi):
     with open(f"{out_dir}/rbopencv_enum_converter.hpp", "w") as f:
         pass
     with open(f"{out_dir}/rbopencv_funcs.hpp", "w") as f:
-        for _, cvfunc in api.cvfuncs.items():
-            if cvfunc.klass:
-                continue
-            generate_wrapper_function_impl(f, cvfunc)
+        with open("./autogen/log.txt", "w") as log_f:
+            for _, cvfunc in api.cvfuncs.items():
+                if cvfunc.klass:
+                    continue
+                generate_wrapper_function_impl(f, cvfunc, log_f)
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:
