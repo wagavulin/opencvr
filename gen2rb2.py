@@ -99,7 +99,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
     print(f"generate wrapper of {cvfunc.name}", file=log_f)
     supported_vars = sorted(supported_vars, reverse=True, key=lambda var: len(var.args))
     wrapper_func_name = gen_wrapper_func_name(cvfunc)
-    is_constructor = cvfunc.klass and cvfunc.klass.name.split(".")[-1] == cvfunc.name.split(".")[-1] and cvfunc.rettype == ""
+    is_constructor = cvfunc.klass and cvfunc.klass.name.split(".")[-1] == cvfunc.name.split(".")[-1]
     is_instance_method = cvfunc.klass and cvfunc.isstatic == False
     print(f'static VALUE {wrapper_func_name}(int argc, VALUE *argv, VALUE klass)', file=f)
     print(f'{{', file=f)
