@@ -82,12 +82,18 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
     num_supported_variants = 0
     supported_vars:list[CvVariant] = []
     for i in range(len(cvfunc.variants)):
+        var = cvfunc.variants[i]
         stat = support_stats[i]
         if stat[0]:
             num_supported_variants += 1
             supported_vars.append(cvfunc.variants[i])
+            gen_stat = "Generate"
         else:
-            print(f"Skip {cvfunc.name} {stat[1]}", file=log_f)
+            gen_stat = "Skip"
+        print(f"{gen_stat} {cvfunc.name} {i} {var.rettype}", file=log_f, end="")
+        for arg in var.args:
+            print(f" {arg.tp}", file=log_f, end="")
+        print(file=log_f)
     if num_supported_variants == 0:
         return
     print(f"generate wrapper of {cvfunc.name}", file=log_f)
