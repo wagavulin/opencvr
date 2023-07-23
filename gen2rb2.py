@@ -19,7 +19,7 @@ g_supported_rettypes = [
     "size_t",
     "float",
     "double",
-    "string",
+    "std.string",
     "cv.String",
     "cv.Mat",
 ]
@@ -34,7 +34,7 @@ g_supported_argtypes = [
     "double",
     "double*",
     "c_string",
-    "string",
+    "std.string",
     "cv.String",
     "cv.Mat",
     "cv.Point",
@@ -49,6 +49,11 @@ g_supported_argtypes = [
     "cv.Size",
     "cv.Size2f",
     "cv.Size2i",
+    "std.vector<char>",
+    "std.vector<uchar>",
+    "std.vector<int>",
+    "std.vector<float>",
+    "std.vector<double>",
 ]
 
 def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
@@ -182,7 +187,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
                 if a.tp == "c_string":
                     rvd_raw_types.append("std::string")
                 else:
-                    rvd_raw_types.append(a.tp)
+                    rvd_raw_types.append(a.tp_qname.replace(".", "::"))
             rvd_raw_var_names.append(f"raw_{a.name}")
             if not a.tp[-1] == "*":
                 # If pointer arg has default value, it's always 0 or nullptr (Is this correct?)
@@ -215,7 +220,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
             if rvd_raw_default_values[i]:
                 f.write(f"        {rvd_raw_types[i]} {rvd_raw_var_names[i]} = {rvd_raw_default_values[i]};\n")
             else:
-                f.write(f"        {rvd_raw_types[i]} {rvd_raw_var_names[i]};\n")
+                f.write(f"        {rvd_raw_types[i]} {rvd_raw_var_names[i]}; // {v.args[i].tp_qname}\n")
         f.write("\n")
 
         # Generate value variable definitions (vvd)

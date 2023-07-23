@@ -340,7 +340,7 @@ def _parse_headers(headers:list[str]) -> CvApi:
 def gen_supported_primitive_types() -> list[str]:
     supported_primitive_types = [
         "char", "short", "int", "long", "float", "double", "int64", "bool", "void", "uchar", "size_t",
-        "string", "c_string",
+        "std.string", "c_string",
     ]
     return supported_primitive_types
 
@@ -383,19 +383,19 @@ def check_qname(tp:str, cvfunc:CvFunc, supported_primitive_types:list[str], supp
     main_type = tp # main_type is Xxx of vector<Xxx>, Ptr<Xxx>, etc.
     m = re.match("vector_(.+)", tp)
     if m:
-        template = "vector<%s>"
+        template = "std.vector<%s>"
         main_type = m.group(1)
     m = re.match("vector_vector_(.+)", tp)
     if m:
-        template = "vector<vector<%s>>"
+        template = "std.vector<std.vector<%s>>"
         main_type = m.group(1)
     m = re.match("vector<(.+)>", tp)
     if m:
-        template = "vector<%s>"
+        template = "std.vector<%s>"
         main_type = m.group(1)
     m = re.match("vector<vector<(.+)> *>", tp)
     if m:
-        template = "vector<vector<%s>>"
+        template = "std.vector<std.vector<%s>>"
         main_type = m.group(1)
     m = re.match("Ptr<(.+)>", tp)
     if m:
@@ -407,6 +407,8 @@ def check_qname(tp:str, cvfunc:CvFunc, supported_primitive_types:list[str], supp
             main_type = m.group(1).replace("_", ".")
 
     main_type = main_type.replace("::", ".")
+    if main_type in ["string", "String"]:
+        main_type = "std.string"
     if main_type in supported_primitive_types:
         return template % main_type
     if main_type.startswith("cv."):
@@ -466,13 +468,13 @@ def parse_headers(headers:list[str]) -> CvApi:
         for var in cvfunc.variants:
             rettype_qname = check_qname(var.rettype, cvfunc, supported_primitive_types, supported_typenames)
             if rettype_qname is None:
-                print(f"[Error] Could not find qname: {var.rettype} {cvfunc.name}")
+                print(f"[Error] Could not find qname of rettype: {var.rettype} {cvfunc.name}")
                 exit(1)
             var.rettype_qname = rettype_qname
             for arg in var.args:
                 tp_qname = check_qname(arg.tp, cvfunc, supported_primitive_types, supported_typenames)
                 if tp_qname is None:
-                    print(f"[Error] Could not find qname: {arg.tp} {cvfunc.name}")
+                    print(f"[Error] Could not find qname argtype: {arg.tp} {cvfunc.name}")
                     exit(1)
                 arg.tp_qname = tp_qname
 

@@ -28,6 +28,7 @@ static int trace_printf(const char *filename, int line, const char *fmt, ...){
 #define TRACE_PRINTF(fmt, ...) trace_printf(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
 using namespace cv;
+using namespace std;
 
 //TODO Below variable is originally defined as TLSData<...> and TLSData is defined in opencv2/core/utils/tls.hpp
 thread_local std::vector<std::string> conversionErrorsTLS;
