@@ -22,6 +22,12 @@ g_supported_rettypes = [
     "std.string",
     "cv.String",
     "cv.Mat",
+    "cv.Point",
+    "cv.Point2d",
+    "cv.Rect",
+    "cv.RotatedRect",
+    "cv.Scalar",
+    "cv.Size",
 ]
 g_supported_argtypes = [
     "bool",
@@ -54,6 +60,16 @@ g_supported_argtypes = [
     "std.vector<int>",
     "std.vector<float>",
     "std.vector<double>",
+    "std.vector<std.string>",
+    "std.vector<cv.String>",
+    "std.vector<cv.Mat>",
+    "std.vector<cv.Point>",
+    "std.vector<cv.Point2f>",
+    "std.vector<cv.Rect>",
+    #"std.vector<cv.>",
+    "std.vector<std.vector<int>>",
+    "std.vector<std.vector<cv.Point2f>>",
+    #"std.vector<std.vector<>>",
 ]
 
 def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
