@@ -12,12 +12,14 @@ out_dir = "./autogen"
 
 g_supported_rettypes = [
     "void",
-    "bool,"
+    "bool",
     "char",
+    "uchar",
     "int",
     "size_t",
     "float",
     "double",
+    "string",
     "cv.String",
     "cv.Mat",
 ]
@@ -30,11 +32,23 @@ g_supported_argtypes = [
     "size_t",
     "float",
     "double",
+    "double*",
+    "c_string",
     "string",
     "cv.String",
     "cv.Mat",
     "cv.Point",
     "cv.Point*",
+    "cv.Point2d",
+    "cv.Point2f",
+    "cv.Point2f*",
+    "cv.Rect",
+    "cv.Rect*",
+    "cv.RotatedRect",
+    "cv.Scalar",
+    "cv.Size",
+    "cv.Size2f",
+    "cv.Size2i",
 ]
 
 def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
@@ -90,7 +104,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
             gen_stat = "Generate"
         else:
             gen_stat = "Skip"
-        print(f"{gen_stat} {cvfunc.name} {i} {var.rettype}", file=log_f, end="")
+        print(f"{gen_stat} |{stat[1]}| {cvfunc.name} {i} {var.rettype}", file=log_f, end="")
         for arg in var.args:
             print(f" {arg.tp}", file=log_f, end="")
         print(file=log_f)
