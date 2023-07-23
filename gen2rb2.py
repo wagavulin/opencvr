@@ -12,15 +12,29 @@ out_dir = "./autogen"
 
 g_supported_rettypes = [
     "void",
+    "bool,"
+    "char",
     "int",
+    "size_t",
+    "float",
+    "double",
+    "cv.String",
     "cv.Mat",
 ]
 g_supported_argtypes = [
+    "bool",
+    "char",
+    "uchar",
     "int",
+    "int*",
+    "size_t",
     "float",
+    "double",
     "string",
     "cv.String",
     "cv.Mat",
+    "cv.Point",
+    "cv.Point*",
 ]
 
 def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
@@ -31,13 +45,13 @@ def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
         msg = ""
         if not func.rettype_qname in g_supported_rettypes:
             supported = False
-            msg = f"rettype ({func.rettype}) is not supported"
+            msg = f"rettype ({func.rettype_qname}) is not supported"
         for i, arg in enumerate(v.args):
             if arg.tp_qname in g_supported_argtypes:
                 pass # supported
             else:
                 supported = False
-                msg = f"arg[{i}] ({arg.tp}) is not supported"
+                msg = f"arg[{i}] ({arg.tp_qname}) is not supported"
         stat = (supported, msg)
         ret.append(stat)
     return ret
@@ -72,6 +86,8 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
         if stat[0]:
             num_supported_variants += 1
             supported_vars.append(cvfunc.variants[i])
+        else:
+            print(f"Skip {cvfunc.name} {stat[1]}", file=log_f)
     if num_supported_variants == 0:
         return
     print(f"generate wrapper of {cvfunc.name}", file=log_f)
