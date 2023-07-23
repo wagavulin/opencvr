@@ -782,7 +782,6 @@ static void init_submodule(const std::string& name, MethodDef method_defs[], Con
         if (is_defined) {
             parent_mod = rb_const_get(parent_mod, sym);
         } else {
-            printf("define module: %s\n", name.c_str());
             parent_mod = rb_define_module_under(parent_mod, submod_name.c_str());
         }
     }
