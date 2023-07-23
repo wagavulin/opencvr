@@ -20,6 +20,8 @@ class CvVariant:
     isconst:bool
     isvirtual:bool
     ispurevirtual:bool
+    rettype:str
+    rettype_qname:str|None
     args:list[CvArg]
 
 @dataclasses.dataclass
@@ -29,8 +31,6 @@ class CvFunc:
     klass:"CvKlass|None"     # For member func. None if it's global function
     name_cpp:str             # name in C++ API
     name:str                 # name of CV_WRAP_AS or CV_EXPORTS_AS if specified, else same as name
-    rettype:str
-    rettype_qname:str|None
     isstatic:bool
     variants:list[CvVariant]
 
@@ -198,7 +198,7 @@ def _parse_headers(headers:list[str]) -> CvApi:
                     args.append(cvarg)
 
                 variant = CvVariant(wrap_as=wrap_as, isconst=isconst, isvirtual=isvirtual,
-                    ispurevirtual=ispurevirtual, args=args)
+                    ispurevirtual=ispurevirtual, rettype=rettype, rettype_qname=None, args=args)
                 if wrap_as:
                     name = ".".join(decl0.split(".")[0:-1]) + "." + wrap_as
                 else:
@@ -207,7 +207,7 @@ def _parse_headers(headers:list[str]) -> CvApi:
                     func = cvfuncs[name]
                 else:
                     func = CvFunc(filename=hdr, ns=None, klass=None, name_cpp=decl0, name=name,
-                        rettype=rettype, rettype_qname=None, isstatic=isstatic, variants=[])
+                        isstatic=isstatic, variants=[])
                     cvfuncs[name] = func
                 func.variants.append(variant)
 
@@ -452,8 +452,8 @@ def _dump_api(cvapi:CvApi):
             print(f"{cvtypedef.name}", file=f)
     with open("tmp-funcs.txt", "w") as f:
         for _, cvfunc in cvapi.cvfuncs.items():
-            print(f"{cvfunc.name} {cvfunc.rettype} {cvfunc.rettype_qname}", file=f)
-            for var in cvfunc.variants:
+            for var_i, var in enumerate(cvfunc.variants, 1):
+                print(f"{cvfunc.name} {var_i} {var.rettype_qname}", file=f)
                 for arg in var.args:
                     print(f"  {arg.tp} {arg.tp_qname}", file=f)
 
@@ -464,11 +464,11 @@ def parse_headers(headers:list[str]) -> CvApi:
     # Set qname of each arg
     for _, cvfunc in cvapi.cvfuncs.items():
         for var in cvfunc.variants:
-            rettype_qname = check_qname(cvfunc.rettype, cvfunc, supported_primitive_types, supported_typenames)
+            rettype_qname = check_qname(var.rettype, cvfunc, supported_primitive_types, supported_typenames)
             if rettype_qname is None:
-                print(f"[Error] Could not find qname: {cvfunc.rettype} {cvfunc.name}")
+                print(f"[Error] Could not find qname: {var.rettype} {cvfunc.name}")
                 exit(1)
-            cvfunc.rettype_qname = rettype_qname
+            var.rettype_qname = rettype_qname
             for arg in var.args:
                 tp_qname = check_qname(arg.tp, cvfunc, supported_primitive_types, supported_typenames)
                 if tp_qname is None:

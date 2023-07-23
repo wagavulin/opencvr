@@ -43,9 +43,9 @@ def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
     for v in func.variants:
         supported = True
         msg = ""
-        if not func.rettype_qname in g_supported_rettypes:
+        if not v.rettype_qname in g_supported_rettypes:
             supported = False
-            msg = f"rettype ({func.rettype_qname}) is not supported"
+            msg = f"rettype ({v.rettype_qname}) is not supported"
         for i, arg in enumerate(v.args):
             if arg.tp_qname in g_supported_argtypes:
                 pass # supported
@@ -140,7 +140,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
         ordered_args.extend(tmp_optional_args)
 
         # Collect values
-        if cvfunc.rettype and not cvfunc.rettype == "void":
+        if v.rettype and not v.rettype == "void":
             rh_raw_var_names.append("raw_retval")
         # C++ API calling is based on original arguments order
         for a in v.args:
@@ -264,8 +264,8 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
             args_str = ", ".join(cac_args)
             f.write(f"            ptr->v = new {ctor_cname}({args_str});\n")
         else:
-            if not cvfunc.rettype == "void":
-                f.write(f"            {cvfunc.rettype} raw_retval;\n")
+            if not v.rettype == "void":
+                f.write(f"            {v.rettype} raw_retval;\n")
                 f.write(f"            raw_retval = ")
             else:
                 f.write(f"            ")
