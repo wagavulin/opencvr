@@ -62,6 +62,17 @@ namespace enumtest1 {
     enum class E3 { DDD }; // CV2::Enumtest1::E3_DDD
 }
 
+namespace classtest1 {
+class CV_EXPORTS_W C1 {
+public:
+    CV_WRAP C1() {}
+    CV_WRAP C1(int value1) : m_value1(value1) {}
+    CV_WRAP int method1(int a) { return m_value1 + a; }
+private:
+    int m_value1{0};
+};
+} // classtest1
+
 // global functions for test arguments and retval
 CV_EXPORTS_W int bindTest1(int a) { return a+a; } // Simple function
 // CV_EXPORTS_W double bindTest1(int a, CV_IN_OUT Point& b, CV_OUT int* c, int d=10, RNG* rng=0, double e=1.2);

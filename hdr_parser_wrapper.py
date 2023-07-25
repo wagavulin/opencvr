@@ -316,22 +316,25 @@ def _parse_headers(headers:list[str]) -> CvApi:
 
     # Add some classes/structs which are not declared as CV_EXPORTS_W.
     # They are necessary because they are used with typedef
-    klass_IndexParams = CvKlass(filename="(root)/opencv2/flann/miniflann.hpp", ns=cvnamespaces["cv.flann"], klass=None, name="cv.flann.IndexParams",
-        klasses=[], enums=[], funcs=[], str_parent_klass=None, parent_klass=None, child_klasses=[], no_bind=True)
-    cvklasses["cv.flann.IndexParams"] = klass_IndexParams
-    klass_SearchParams = CvKlass(filename="(root)/opencv2/flann/miniflann.hpp", ns=cvnamespaces["cv.flann"], klass=None, name="cv.flann.SearchParams",
-        klasses=[], enums=[], funcs=[], str_parent_klass=klass_IndexParams.name, parent_klass=klass_IndexParams, child_klasses=[], no_bind=True)
-    cvklasses["cv.flann.SearchParams"] = klass_SearchParams
-    klass_IndexParams.child_klasses.append(klass_SearchParams)
+    if "cv.flann" in cvnamespaces.keys():
+        klass_IndexParams = CvKlass(filename="(root)/opencv2/flann/miniflann.hpp", ns=cvnamespaces["cv.flann"], klass=None, name="cv.flann.IndexParams",
+            klasses=[], enums=[], funcs=[], str_parent_klass=None, parent_klass=None, child_klasses=[], no_bind=True)
+        cvklasses["cv.flann.IndexParams"] = klass_IndexParams
+        klass_SearchParams = CvKlass(filename="(root)/opencv2/flann/miniflann.hpp", ns=cvnamespaces["cv.flann"], klass=None, name="cv.flann.SearchParams",
+            klasses=[], enums=[], funcs=[], str_parent_klass=klass_IndexParams.name, parent_klass=klass_IndexParams, child_klasses=[], no_bind=True)
+        cvklasses["cv.flann.SearchParams"] = klass_SearchParams
+        klass_IndexParams.child_klasses.append(klass_SearchParams)
 
     # Manually add typedefs because hdr_parser.py does not provide them
     cvtypedefs:dict[str,CvTypedef] = {}
-    cvtypedefs["cv.FeatureDetector"] = CvTypedef(tdtype=TypedefType.CLASS, name="cv.FeatureDetector", klass=cvklasses["cv.Feature2D"],
-        func=None, enum=None, other=None)
-    cvtypedefs["cv.DescriptorExtractor"] = CvTypedef(tdtype=TypedefType.CLASS, name="cv.DescriptorExtractor", klass=cvklasses["cv.Feature2D"],
-        func=None, enum=None, other=None)
-    cvtypedefs["cv.dnn.Net.LayerId"] = CvTypedef(tdtype=TypedefType.CLASS, name="cv.dnn.Net.LayerId", klass=cvklasses["cv.dnn.DictValue"],
-        func=None, enum=None, other=None)
+    if "cv.Feature2D" in cvklasses.keys():
+        cvtypedefs["cv.FeatureDetector"] = CvTypedef(tdtype=TypedefType.CLASS, name="cv.FeatureDetector", klass=cvklasses["cv.Feature2D"],
+            func=None, enum=None, other=None)
+        cvtypedefs["cv.DescriptorExtractor"] = CvTypedef(tdtype=TypedefType.CLASS, name="cv.DescriptorExtractor", klass=cvklasses["cv.Feature2D"],
+            func=None, enum=None, other=None)
+    if "cv.dnn.DictValue" in cvklasses.keys():
+        cvtypedefs["cv.dnn.Net.LayerId"] = CvTypedef(tdtype=TypedefType.CLASS, name="cv.dnn.Net.LayerId", klass=cvklasses["cv.dnn.DictValue"],
+            func=None, enum=None, other=None)
     cvtypedefs["cv.dnn.MatShape"] = CvTypedef(tdtype=TypedefType.OTHER, name="cv.dnn.MatShape", klass=None, func=None, enum=None, other="vector<int>")
 
     cvapi = CvApi(cvnamespaces=cvnamespaces, cvenums=cvenums, cvklasses=cvklasses, cvfuncs=cvfuncs, cvtypedefs=cvtypedefs)

@@ -8,7 +8,7 @@ import hdr_parser_wrapper
 from hdr_parser_wrapper import (CvApi, CvArg, CvEnum, CvEnumerator, CvFunc,
                                 CvKlass, CvNamespace, CvVariant)
 
-out_dir = "./autogen"
+g_out_dir = "./autogen"
 
 g_supported_rettypes = [
     "void",
@@ -112,6 +112,87 @@ def get_namespace_of_func(func:CvFunc):
         exit(1)
     return ret
 
+_g_abstract_classes = [
+    "cv.Ns1.Ns11.SubSubI2",
+    "cv.Algorithm",
+    "cv.ml.ANN_MLP",
+    "cv.ml.Boost",
+    "cv.ml.DTrees",
+    "cv.ml.EM",
+    "cv.ml.KNearest",
+    "cv.ml.LogisticRegression",
+    "cv.ml.NormalBayesClassifier",
+    "cv.ml.RTrees",
+    "cv.ml.SVM",
+    "cv.ml.SVMSGD",
+    "cv.ml.StatModel",
+    "cv.ml.TrainData",
+    "cv.detail.Estimator",
+    "cv.detail.ExposureCompensator",
+    "cv.detail.BlocksCompensator",
+    "cv.detail.BundleAdjusterBase",
+    "cv.detail.FeaturesMatcher",
+    "cv.detail.PairwiseSeamFinder",
+    "cv.detail.SeamFinder",
+    "cv.AKAZE",
+    "cv.AffineFeature",
+    "cv.AgastFeatureDetector",
+    "cv.AlignExposures",
+    "cv.AlignMTB",
+    "cv.BOWTrainer",
+    "cv.BRISK",
+    "cv.BackgroundSubtractor",
+    "cv.BackgroundSubtractorKNN",
+    "cv.BackgroundSubtractorMOG2",
+    "cv.BaseCascadeClassifier",
+    "cv.CLAHE",
+    "cv.CalibrateCRF",
+    "cv.CalibrateDebevec",
+    "cv.CalibrateRobertson",
+    "cv.DISOpticalFlow",
+    "cv.DenseOpticalFlow",
+    "cv.DescriptorMatcher",
+    "cv.FaceDetectorYN",
+    "cv.FaceRecognizerSF",
+    "cv.FarnebackOpticalFlow",
+    "cv.FastFeatureDetector",
+    "cv.Formatter",
+    "cv.GFTTDetector",
+    "cv.GeneralizedHough",
+    "cv.GeneralizedHoughBallard",
+    "cv.GeneralizedHoughGuil",
+    "cv.KAZE",
+    "cv.LineSegmentDetector",
+    "cv.MSER",
+    "cv.MergeDebevec",
+    "cv.MergeExposures",
+    "cv.MergeMertens",
+    "cv.MergeRobertson",
+    "cv.ORB",
+    "cv.QRCodeEncoder",
+    "cv.SIFT",
+    "cv.SimpleBlobDetector",
+    "cv.SparseOpticalFlow",
+    "cv.SparsePyrLKOpticalFlow",
+    "cv.StereoBM",
+    "cv.StereoMatcher",
+    "cv.StereoSGBM",
+    "cv.Tonemap",
+    "cv.TonemapDrago",
+    "cv.TonemapMantiuk",
+    "cv.TonemapReinhard",
+    "cv.Tracker",
+    "cv.TrackerDaSiamRPN",
+    "cv.TrackerGOTURN",
+    "cv.TrackerMIL",
+    "cv.TrackerNano",
+    "cv.VariationalRefinement",
+    "cv.WarperCreator",
+]
+
+def check_is_abstract_class(cvklass:CvKlass):
+    return cvklass.name in _g_abstract_classes
+
 def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
     support_stats = check_func_variants_support_status(cvfunc)
     num_supported_variants = 0
@@ -131,7 +212,6 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
         print(file=log_f)
     if num_supported_variants == 0:
         return
-    print(f"generate wrapper of {cvfunc.name}", file=log_f)
     supported_vars = sorted(supported_vars, reverse=True, key=lambda var: len(var.args))
     wrapper_func_name = gen_wrapper_func_name(cvfunc)
     is_constructor = cvfunc.klass and cvfunc.klass.name.split(".")[-1] == cvfunc.name.split(".")[-1]
@@ -349,11 +429,11 @@ def generate_code(api:CvApi):
         sorted_namespaces.append(ns)
     sorted(sorted_namespaces, key=lambda ns: ns.name)
 
-    with open(f"{out_dir}/rbopencv_namespaceregistration.hpp", "w") as f:
+    with open(f"{g_out_dir}/rbopencv_namespaceregistration.hpp", "w") as f:
         for ns in sorted_namespaces:
             nsname_us = ns.name.replace(".", "_")
             print(f"init_submodule(\"{ns.name}\", methods_{nsname_us}, consts_{nsname_us});", file=f)
-    with open(f"{out_dir}/rbopencv_modules_content.hpp", "w") as f:
+    with open(f"{g_out_dir}/rbopencv_modules_content.hpp", "w") as f:
         for ns in sorted_namespaces:
             name_us = ns.name.replace(".", "_")
             print(f"static MethodDef methods_{name_us}[] = {{", file=f)
@@ -390,25 +470,108 @@ def generate_code(api:CvApi):
                         print('    {"%s", static_cast<long>(%s)},' % (def_name, def_value), file=f)
             print(f"    {{NULL, 0}}", file=f)
             print(f"}};\n", file=f)
-    with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
+    with (open(f"{g_out_dir}/rbopencv_classregistration.hpp", "w") as fcr,
+          open(f"{g_out_dir}/rbopencv_wrapclass.hpp", "w") as fwc):
         for ns in sorted_namespaces:
-            if ns.name == "cv":
-                continue
-            print(f"{{", file=f)
-            wname = "_".join(ns.name.split(".")[1:])
-            print(f"    VALUE parent_mod = get_parent_module_by_wname(mCV2, \"{wname}\");", file=f)
-            print(f"}}", file=f)
-
-    with open(f"{out_dir}/rbopencv_wrapclass.hpp", "w") as f:
-        pass
-    with open(f"{out_dir}/rbopencv_enum_converter.hpp", "w") as f:
-        pass
-    with open(f"{out_dir}/rbopencv_funcs.hpp", "w") as f:
-        with open("./autogen/log.txt", "w") as log_f:
-            for _, cvfunc in api.cvfuncs.items():
-                if cvfunc.klass:
+            for klass in ns.klasses:
+                if klass.name == "cv.Mat":
                     continue
+                def get_parent_mod_name(klass:CvKlass) -> str:
+                    if klass.ns:
+                        mod_name_raw = klass.ns.name
+                    elif klass.klass:
+                        mod_name_raw = klass.klass.name
+                    else:
+                        mod_name_raw = "" # NotReached
+                    strs = mod_name_raw.split(".")
+                    if strs[0] == "cv":
+                        strs[0] = "CV2"
+                    for i in range(1, len(strs)):
+                        strs[i] = strs[i].capitalize()
+                    return "_".join(strs)
+                # Example: cv.Ns1.Ns11.Foo class
+                parent_mod_name = get_parent_mod_name(klass)     # CV2_Ns1_Ns11
+                us_klass_name = klass.name.replace(".", "_")     # underscored class name: cv_Ns1_Ns11_Foo
+                c_klass = f'c{us_klass_name}'                    # ccv_Ns1_Ns11_Foo (for VALUE name)
+                cvrb_klass_basename = klass.name.split(".")[-1]  # Foo
+                wrap_struct = f"struct Wrap_{us_klass_name}"     # struct Wrap_cv_Ns1_Ns11_Foo
+                qname = klass.name.replace(".", "::")            # "cv::Ns1::Ns11::Foo"
+                isabstract = check_is_abstract_class(klass)
+                # Write rbopenv_classregistration.hpp
+                print(f"{{", file=fcr)
+                print(f"    VALUE parent_mod = get_parent_module_by_wname(mCV2, \"{parent_mod_name}\");", file=fcr)
+                print(f'    {c_klass} = rb_define_class_under(parent_mod, "{cvrb_klass_basename}", rb_cObject);', file=fcr)
+                print(f"    rb_define_alloc_func({c_klass}, wrap_{us_klass_name}_alloc);", file=fcr)
+                #print(f'    rb_define_private_method({c_klass}, "initialize", RUBY_METHOD_FUNC(wrap_{klass.name.replace(".", "_")}_init), -1);', file=fcr)
+                print(f"}}", file=fcr)
+
+                # Write rbopenv_wrapclass.hpp
+                fwc.write(f"static VALUE {c_klass};\n")
+                fwc.write(f"{wrap_struct} {{\n")
+                fwc.write(f"    Ptr<{qname}> v;\n")
+                fwc.write(f"}};\n")
+                fwc.write(f"static void wrap_{us_klass_name}_free({wrap_struct}* ptr){{\n")
+                fwc.write(f"    ptr->v.reset();\n")
+                fwc.write(f"    ruby_xfree(ptr);\n")
+                fwc.write(f"}};\n")
+                fwc.write(f"static const rb_data_type_t {us_klass_name}_type {{\n")
+                fwc.write(f"    \"{c_klass}\",\n")
+                fwc.write(f"    {{NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_{us_klass_name}_free), NULL}},\n")
+                fwc.write(f"    NULL, NULL,\n")
+                fwc.write(f"    RUBY_TYPED_FREE_IMMEDIATELY\n")
+                fwc.write(f"}};\n")
+                fwc.write(f"static Ptr<{qname}> get_{us_klass_name}(VALUE self){{\n")
+                fwc.write(f"    {wrap_struct}* ptr;\n")
+                fwc.write(f"    TypedData_Get_Struct(self, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+                fwc.write(f"    return ptr->v;\n")
+                fwc.write(f"}}\n")
+                fwc.write(f"static VALUE wrap_{us_klass_name}_alloc(VALUE klass){{\n")
+                fwc.write(f'    printf("[%s]\\n", "{us_klass_name}");\n')
+                fwc.write(f"    {wrap_struct}* ptr = nullptr;\n")
+                fwc.write(f"    VALUE ret = TypedData_Make_Struct(klass, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+                fwc.write(f"    return ret;\n")
+                fwc.write(f"}}\n")
+                fwc.write(f"template<>\n")
+                fwc.write(f"VALUE rbopencv_from(const Ptr<{qname}>& value){{\n")
+                fwc.write(f"    TRACE_PRINTF(\"[rbopencv_from Ptr<{qname}>]\\n\");\n")
+                fwc.write(f"    {wrap_struct} *ptr;\n")
+                fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({c_klass});\n")
+                fwc.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+                fwc.write(f"    ptr->v = value;\n")
+                fwc.write(f"    return a;\n")
+                fwc.write(f"}}\n")
+
+                if isabstract:
+                    continue
+                fwc.write(f"template<>\n")
+                fwc.write(f"VALUE rbopencv_from(const {qname}& value){{\n")
+                fwc.write(f"    TRACE_PRINTF(\"[rbopencv_from {qname}]\\n\");\n")
+                fwc.write(f"    {wrap_struct} *ptr;\n")
+                fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({c_klass});\n")
+                fwc.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+                fwc.write(f"    ptr->v = new {qname}(value);\n")
+                fwc.write(f"    return a;\n")
+                fwc.write(f"}}\n")
+                fwc.write(f"static VALUE wrap_{us_klass_name}_init(int argc, VALUE *argv, VALUE self); // implemented in rbopencv_funcs.hpp\n\n")
+
+
+
+    with open(f"{g_out_dir}/rbopencv_enum_converter.hpp", "w") as f:
+        pass
+    with (open(f"{g_out_dir}/rbopencv_funcs.hpp", "w") as f,
+          open("./autogen/log.txt", "w") as log_f):
+            for _, cvfunc in api.cvfuncs.items():
+                #if cvfunc.klass:
+                #    continue
                 generate_wrapper_function_impl(f, cvfunc, log_f)
+            for ns in sorted_namespaces:
+                if ns.name == "cv":
+                    continue
+                for klass in ns.klasses:
+                    c_klass = f'c{klass.name.replace(".", "_")}'     # cv_Ns1_Ns11_Foo
+                    f.write(f"static VALUE wrap_{c_klass}_init(int argc, VALUE *argv, VALUE self) {{\n")
+                    f.write( "    return Qnil;\n")
+                    f.write( "}\n")
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:
@@ -422,8 +585,8 @@ with open(headers_txt) as f:
         headers.append(line.split("#")[0].strip())
 
 api = hdr_parser_wrapper.parse_headers(headers)
-os.makedirs(out_dir, exist_ok=True)
-with open(f"{out_dir}/rbopencv_include.hpp", "w") as f:
+os.makedirs(g_out_dir, exist_ok=True)
+with open(f"{g_out_dir}/rbopencv_include.hpp", "w") as f:
     for hdr in headers:
         print(f'#include "{hdr}"', file=f)
 generate_code(api)

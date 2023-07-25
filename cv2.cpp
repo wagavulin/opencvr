@@ -772,7 +772,7 @@ std::string to_submod_name(const std::string subname){
 }
 
 static void init_submodule(const std::string& name, MethodDef method_defs[], ConstDef const_defs[]){
-    //printf("[%s]\n", __func__);
+    //printf("[%s] %s\n", __func__, name.c_str());
     auto subnames = split_string(name, '.');
     VALUE parent_mod = mCV2;
     for (const auto& subname : subnames) {
@@ -828,8 +828,10 @@ static void init_submodule_bak(VALUE top_module, const char* name, MethodDef met
             VALUE submod;
             if (is_defined)
                 submod = rb_const_get(parent_mod, name_sym);
-            else
+            else {
+                printf("[%s] define %s\n", __func__, module_short_name.c_str());
                 submod = rb_define_module_under(parent_mod, module_short_name.c_str());
+            }
             parent_mod = submod;
         }
     }
@@ -851,9 +853,13 @@ static void init_submodule_bak(VALUE top_module, const char* name, MethodDef met
 
 static VALUE get_parent_module_by_wname(VALUE top_module, const std::string wname){
     // wname: Ns1_Ns11_SubSubC1
-    // printf("[%s] %s\n", __func__, wname.c_str());
+    //printf("[%s] %s\n", __func__, wname.c_str());
     auto modnames = split_string(wname, '_'); // ["Ns1", "Ns11", "SubSubC1"]
-    modnames.pop_back(); // remove the last element (class name) => ["Ns1", "Ns11"]
+    // modnames.pop_back(); // remove the last element (class name) => ["Ns1", "Ns11"]
+    //for (const auto& s : modnames) {
+    //    printf("  %s", s.c_str());
+    //}
+    //printf("\n");
     // Special handling. In wname, module names are split by "_", but some classes
     // have "_".
     if (wname == "Ml_Ann_MLP") {
@@ -871,12 +877,13 @@ static VALUE get_parent_module_by_wname(VALUE top_module, const std::string wnam
         if (is_defined)
             submod = rb_const_get(parent_mod, name_sym);
         else {
-            fprintf(stderr, "[ruby cv2.cpp %s] Error: parent_mod is not defined\n", __func__);
+            fprintf(stderr, "[ruby cv2.cpp %s] Error: parent_mod is not defined: %s\n", __func__, wname.c_str());
             parent_mod = Qnil;
             break;
         }
         parent_mod = submod;
     }
+    //printf("  returns %ld for %s\n", parent_mod, wname.c_str());
     return parent_mod;
 }
 
@@ -885,6 +892,6 @@ void Init_cv2(){
     mCV2 = rb_define_module("CV2");
 
     #include "autogen/rbopencv_namespaceregistration.hpp"
-    //#include "autogen/rbopencv_classregistration.hpp"
+    #include "autogen/rbopencv_classregistration.hpp"
 }
 }
