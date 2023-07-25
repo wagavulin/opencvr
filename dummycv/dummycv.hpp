@@ -69,7 +69,7 @@ public:
     CV_WRAP C1(int value1) : m_value1(value1) {}
     CV_WRAP int method1(int a) { return m_value1 + a; }
 private:
-    int m_value1{0};
+    int m_value1{1};
 };
 } // classtest1
 

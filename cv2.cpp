@@ -574,7 +574,7 @@ bool rbopencv_to(VALUE obj, std::vector<T>& value){
 }
 
 template<typename T>
-static VALUE rbopencv_from(const T& src) {
+static VALUE rbopencv_from(T& src) {
     TRACE_PRINTF("[rbopencv_from primary] should not be used\n");
     return Qnil;
 }
@@ -597,7 +597,7 @@ VALUE rbopencv_from(const cv::Mat& m){
 }
 
 template<>
-VALUE rbopencv_from(const int& value){
+VALUE rbopencv_from(int& value){
     TRACE_PRINTF("[rbopencv_from int]\n");
     return INT2NUM(value);
 }
@@ -853,13 +853,12 @@ static void init_submodule_bak(VALUE top_module, const char* name, MethodDef met
 
 static VALUE get_parent_module_by_wname(VALUE top_module, const std::string wname){
     // wname: Ns1_Ns11_SubSubC1
-    //printf("[%s] %s\n", __func__, wname.c_str());
+    // printf("[%s] %s\n", __func__, wname.c_str());
     auto modnames = split_string(wname, '_'); // ["Ns1", "Ns11", "SubSubC1"]
-    // modnames.pop_back(); // remove the last element (class name) => ["Ns1", "Ns11"]
-    //for (const auto& s : modnames) {
-    //    printf("  %s", s.c_str());
-    //}
-    //printf("\n");
+    // for (const auto& s : modnames) {
+    //     printf("  %s", s.c_str());
+    // }
+    // printf("\n");
     // Special handling. In wname, module names are split by "_", but some classes
     // have "_".
     if (wname == "Ml_Ann_MLP") {

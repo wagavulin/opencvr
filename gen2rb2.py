@@ -196,6 +196,12 @@ _g_abstract_classes = [
     "cv.TrackerNano",
     "cv.VariationalRefinement",
     "cv.WarperCreator",
+    # Not abstarct, but cannot be instantiated
+    "cv.dnn.TextDetectionModel",
+    "cv.UMatData",
+    "cv.Mat",
+    # Not abstract, but cannot be instantiated because no default ctor
+    "cv.DetectionBasedTracker",
 ]
 
 def check_is_abstract_class(cvklass:CvKlass):
@@ -440,6 +446,10 @@ def generate_code(api:CvApi):
     for _, ns in api.cvnamespaces.items():
         sorted_namespaces.append(ns)
     sorted(sorted_namespaces, key=lambda ns: ns.name)
+    sorted_klasses:list[CvKlass] = []
+    for _, klass in api.cvklasses.items():
+        sorted_klasses.append(klass)
+    sorted(sorted_klasses, key=lambda klass: klass.name)
 
     with open(f"{g_out_dir}/rbopencv_namespaceregistration.hpp", "w") as f:
         for ns in sorted_namespaces:
@@ -484,113 +494,123 @@ def generate_code(api:CvApi):
             print(f"}};\n", file=f)
     with (open(f"{g_out_dir}/rbopencv_classregistration.hpp", "w") as fcr,
           open(f"{g_out_dir}/rbopencv_wrapclass.hpp", "w") as fwc):
-        for ns in sorted_namespaces:
-            for klass in ns.klasses:
-                if klass.name == "cv.Mat":
-                    continue
-                def get_parent_mod_name(klass:CvKlass) -> str:
-                    if klass.ns:
-                        mod_name_raw = klass.ns.name
-                    elif klass.klass:
-                        mod_name_raw = klass.klass.name
-                    else:
-                        mod_name_raw = "" # NotReached
-                    strs = mod_name_raw.split(".")
-                    if strs[0] == "cv":
-                        strs[0] = "CV2"
-                    for i in range(1, len(strs)):
-                        strs[i] = strs[i].capitalize()
-                    return "_".join(strs)
-                # Example: cv.Ns1.Ns11.Foo class
-                parent_mod_name = get_parent_mod_name(klass)     # CV2_Ns1_Ns11
-                us_klass_name = klass.name.replace(".", "_")     # underscored class name: cv_Ns1_Ns11_Foo
-                c_klass = f'c{us_klass_name}'                    # ccv_Ns1_Ns11_Foo (for VALUE name)
-                cvrb_klass_basename = klass.name.split(".")[-1]  # Foo
-                wrap_struct = f"struct Wrap_{us_klass_name}"     # struct Wrap_cv_Ns1_Ns11_Foo
-                qname = klass.name.replace(".", "::")            # "cv::Ns1::Ns11::Foo"
-                isabstract = check_is_abstract_class(klass)
-                # Write rbopenv_classregistration.hpp
-                print(f"{{", file=fcr)
-                print(f"    VALUE parent_mod = get_parent_module_by_wname(mCV2, \"{parent_mod_name}\");", file=fcr)
-                print(f'    {c_klass} = rb_define_class_under(parent_mod, "{cvrb_klass_basename}", rb_cObject);', file=fcr)
-                print(f"    rb_define_alloc_func({c_klass}, wrap_{us_klass_name}_alloc);", file=fcr)
-                if not isabstract:
-                    print(f'    rb_define_private_method({c_klass}, "initialize", RUBY_METHOD_FUNC(wrap_{klass.name.replace(".", "_")}_init), -1);', file=fcr)
-                for func in klass.funcs:
-                    func_basename = func.name.split(".")[-1] # "cv.Ns1.Ns11.method1" -> "method1"
-                    stats = check_func_variants_support_status(func)
-                    num_supported_variants = 0
-                    for stat in stats:
-                        if stat[0]:
-                            num_supported_variants += 1
-                    if func.isstatic:
-                        pass
-                    else:
-                        if num_supported_variants == 0:
-                            continue
-                        wrapper_func_name = gen_wrapper_func_name(func)
-                        #print(f'    rb_define_method({c_klass}, "{func_basename}", RUBY_METHOD_FUNC(rbopencv_{us_klass_name}_{func_basename}), -1);', file=fcr)
-                        print(f'    rb_define_method({c_klass}, "{func_basename}", RUBY_METHOD_FUNC({wrapper_func_name}), -1);', file=fcr)
-                print(f"}}", file=fcr)
-
-                # Write rbopenv_wrapclass.hpp
-                fwc.write(f"static VALUE {c_klass};\n")
-                fwc.write(f"{wrap_struct} {{\n")
-                fwc.write(f"    Ptr<{qname}> v;\n")
-                fwc.write(f"}};\n")
-                fwc.write(f"static void wrap_{us_klass_name}_free({wrap_struct}* ptr){{\n")
-                fwc.write(f"    ptr->v.reset();\n")
-                fwc.write(f"    ruby_xfree(ptr);\n")
-                fwc.write(f"}};\n")
-                fwc.write(f"static const rb_data_type_t {us_klass_name}_type {{\n")
-                fwc.write(f"    \"{c_klass}\",\n")
-                fwc.write(f"    {{NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_{us_klass_name}_free), NULL}},\n")
-                fwc.write(f"    NULL, NULL,\n")
-                fwc.write(f"    RUBY_TYPED_FREE_IMMEDIATELY\n")
-                fwc.write(f"}};\n")
-                fwc.write(f"static Ptr<{qname}> get_{us_klass_name}(VALUE self){{\n")
-                fwc.write(f"    {wrap_struct}* ptr;\n")
-                fwc.write(f"    TypedData_Get_Struct(self, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
-                fwc.write(f"    return ptr->v;\n")
-                fwc.write(f"}}\n")
-                fwc.write(f"static VALUE wrap_{us_klass_name}_alloc(VALUE klass){{\n")
-                fwc.write(f'    printf("[%s]\\n", "{us_klass_name}");\n')
-                fwc.write(f"    {wrap_struct}* ptr = nullptr;\n")
-                fwc.write(f"    VALUE ret = TypedData_Make_Struct(klass, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
-                fwc.write(f"    return ret;\n")
-                fwc.write(f"}}\n")
-                fwc.write(f"template<>\n")
-                fwc.write(f"VALUE rbopencv_from(const Ptr<{qname}>& value){{\n")
-                fwc.write(f"    TRACE_PRINTF(\"[rbopencv_from Ptr<{qname}>]\\n\");\n")
-                fwc.write(f"    {wrap_struct} *ptr;\n")
-                fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({c_klass});\n")
-                fwc.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
-                fwc.write(f"    ptr->v = value;\n")
-                fwc.write(f"    return a;\n")
-                fwc.write(f"}}\n")
-
-                if isabstract:
-                    continue
-                fwc.write(f"template<>\n")
-                fwc.write(f"VALUE rbopencv_from(const {qname}& value){{\n")
-                fwc.write(f"    TRACE_PRINTF(\"[rbopencv_from {qname}]\\n\");\n")
-                fwc.write(f"    {wrap_struct} *ptr;\n")
-                fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({c_klass});\n")
-                fwc.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
-                fwc.write(f"    ptr->v = new {qname}(value);\n")
-                fwc.write(f"    return a;\n")
-                fwc.write(f"}}\n")
+        for klass in sorted_klasses:
+            if klass.name == "cv.Mat":
+                continue
+            def get_parent_mod_name(klass:CvKlass) -> str:
+                if klass.ns:
+                    mod_name_raw = klass.ns.name
+                elif klass.klass:
+                    mod_name_raw = klass.klass.ns.name
+                else:
+                    mod_name_raw = "" # NotReached
+                strs = mod_name_raw.split(".")
+                if strs[0] == "cv":
+                    strs[0] = "CV2"
+                for i in range(1, len(strs)):
+                    strs[i] = strs[i].capitalize()
+                return "_".join(strs)
+            # Example: cv.Ns1.Ns11.Foo class
+            parent_mod_name = get_parent_mod_name(klass)     # CV2_Ns1_Ns11
+            us_klass_name = klass.name.replace(".", "_")     # underscored class name: cv_Ns1_Ns11_Foo
+            c_klass = f'c{us_klass_name}'                    # ccv_Ns1_Ns11_Foo (for VALUE name)
+            cvrb_klass_basename = klass.name.split(".")[-1]  # Foo
+            wrap_struct = f"struct Wrap_{us_klass_name}"     # struct Wrap_cv_Ns1_Ns11_Foo
+            qname = klass.name.replace(".", "::")            # "cv::Ns1::Ns11::Foo"
+            isabstract = check_is_abstract_class(klass)
+            # Write rbopenv_classregistration.hpp
+            print(f"{{", file=fcr)
+            print(f"    VALUE parent_mod = get_parent_module_by_wname(mCV2, \"{parent_mod_name}\");", file=fcr)
+            print(f'    {c_klass} = rb_define_class_under(parent_mod, "{cvrb_klass_basename}", rb_cObject);', file=fcr)
+            print(f"    rb_define_alloc_func({c_klass}, wrap_{us_klass_name}_alloc);", file=fcr)
+            if not isabstract:
                 has_ctor = False
                 num_supported_ctor_variants = 0
                 for func in klass.funcs:
                     if check_is_constructor(func):
                         has_ctor = True
-                        stats = check_func_variants_support_status(func)
-                        for stat in stats:
+                        ctor_stats = check_func_variants_support_status(func)
+                        for stat in ctor_stats:
                             if stat[0]:
                                 num_supported_ctor_variants += 1
                 if has_ctor == False or num_supported_ctor_variants >= 1:
-                    fwc.write(f"static VALUE wrap_{us_klass_name}_init(int argc, VALUE *argv, VALUE self); // implemented in rbopencv_funcs.hpp\n\n")
+                    print(f'    rb_define_private_method({c_klass}, "initialize", RUBY_METHOD_FUNC(wrap_{klass.name.replace(".", "_")}_init), -1);', file=fcr)
+            for func in klass.funcs:
+                func_basename = func.name.split(".")[-1] # "cv.Ns1.Ns11.method1" -> "method1"
+                stats = check_func_variants_support_status(func)
+                num_supported_variants = 0
+                for stat in stats:
+                    if stat[0]:
+                        num_supported_variants += 1
+                if func.isstatic:
+                    pass
+                else:
+                    if num_supported_variants == 0:
+                        continue
+                    wrapper_func_name = gen_wrapper_func_name(func)
+                    #print(f'    rb_define_method({c_klass}, "{func_basename}", RUBY_METHOD_FUNC(rbopencv_{us_klass_name}_{func_basename}), -1);', file=fcr)
+                    print(f'    rb_define_method({c_klass}, "{func_basename}", RUBY_METHOD_FUNC({wrapper_func_name}), -1);', file=fcr)
+            print(f"}}", file=fcr)
+
+            # Write rbopenv_wrapclass.hpp
+            fwc.write(f"static VALUE {c_klass};\n")
+            fwc.write(f"{wrap_struct} {{\n")
+            fwc.write(f"    Ptr<{qname}> v;\n")
+            fwc.write(f"}};\n")
+            fwc.write(f"static void wrap_{us_klass_name}_free({wrap_struct}* ptr){{\n")
+            fwc.write(f"    ptr->v.reset();\n")
+            fwc.write(f"    ruby_xfree(ptr);\n")
+            fwc.write(f"}};\n")
+            fwc.write(f"static const rb_data_type_t {us_klass_name}_type {{\n")
+            fwc.write(f"    \"{c_klass}\",\n")
+            fwc.write(f"    {{NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_{us_klass_name}_free), NULL}},\n")
+            fwc.write(f"    NULL, NULL,\n")
+            fwc.write(f"    RUBY_TYPED_FREE_IMMEDIATELY\n")
+            fwc.write(f"}};\n")
+            fwc.write(f"static Ptr<{qname}> get_{us_klass_name}(VALUE self){{\n")
+            fwc.write(f"    {wrap_struct}* ptr;\n")
+            fwc.write(f"    TypedData_Get_Struct(self, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+            fwc.write(f"    return ptr->v;\n")
+            fwc.write(f"}}\n")
+            fwc.write(f"static VALUE wrap_{us_klass_name}_alloc(VALUE klass){{\n")
+            fwc.write(f'    printf("[%s]\\n", "{us_klass_name}");\n')
+            fwc.write(f"    {wrap_struct}* ptr = nullptr;\n")
+            fwc.write(f"    VALUE ret = TypedData_Make_Struct(klass, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+            fwc.write(f"    return ret;\n")
+            fwc.write(f"}}\n")
+            fwc.write(f"template<>\n")
+            fwc.write(f"VALUE rbopencv_from(const Ptr<{qname}>& value){{\n")
+            fwc.write(f"    TRACE_PRINTF(\"[rbopencv_from Ptr<{qname}>]\\n\");\n")
+            fwc.write(f"    {wrap_struct} *ptr;\n")
+            fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({c_klass});\n")
+            fwc.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+            fwc.write(f"    ptr->v = value;\n")
+            fwc.write(f"    return a;\n")
+            fwc.write(f"}}\n")
+
+            if isabstract:
+                continue
+            # fwc.write(f"template<>\n")
+            # fwc.write(f"VALUE rbopencv_from({qname}& value){{\n")
+            # fwc.write(f"    TRACE_PRINTF(\"[rbopencv_from {qname}]\\n\");\n")
+            # fwc.write(f"    {wrap_struct} *ptr;\n")
+            # fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({c_klass});\n")
+            # fwc.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+            # #fwc.write(f"    ptr->v = new {qname}(value);\n")
+            # fwc.write(f"    ptr->v = cv::makePtr<{qname}>(value);\n")
+            # fwc.write(f"    return a;\n")
+            # fwc.write(f"}}\n")
+            has_ctor = False
+            num_supported_ctor_variants = 0
+            for func in klass.funcs:
+                if check_is_constructor(func):
+                    has_ctor = True
+                    stats = check_func_variants_support_status(func)
+                    for stat in stats:
+                        if stat[0]:
+                            num_supported_ctor_variants += 1
+            if has_ctor == False or num_supported_ctor_variants >= 1:
+                fwc.write(f"static VALUE wrap_{us_klass_name}_init(int argc, VALUE *argv, VALUE self); // implemented in rbopencv_funcs.hpp\n\n")
 
     with open(f"{g_out_dir}/rbopencv_enum_converter.hpp", "w") as f:
         pass
@@ -616,23 +636,22 @@ def generate_code(api:CvApi):
                 if num_supported_variants == 0:
                     continue
                 generate_wrapper_function_impl(f, cvfunc, log_f)
-            for ns in sorted_namespaces:
-                for klass in ns.klasses:
-                    has_ctor = False
-                    for func in klass.funcs:
-                        if check_is_constructor(func):
-                            has_ctor = True
-                            break
-                    isabstract = check_is_abstract_class(klass)
-                    if (not has_ctor) and (not isabstract):
-                        # If ctor is not defined, ClassName_init() shall be generated to support default ctor
-                        klass_basename = klass.name.split(".")[-1]
-                        ctor_name = f"{klass.name}.{klass_basename}"
-                        ctor_var = CvVariant(wrap_as=None, isconst=False, isvirtual=False, ispurevirtual=False, rettype="",
-                            rettype_qname="", args=[])
-                        dummy_func = CvFunc(filename="(dummy)", ns=klass.ns, klass=klass, name_cpp=ctor_name, name=ctor_name,
-                            isstatic=False, variants=[ctor_var])
-                        generate_wrapper_function_impl(f, dummy_func, log_f)
+            for klass in sorted_klasses:
+                has_ctor = False
+                for func in klass.funcs:
+                    if check_is_constructor(func):
+                        has_ctor = True
+                        break
+                isabstract = check_is_abstract_class(klass)
+                if (not has_ctor) and (not isabstract):
+                    # If ctor is not defined, ClassName_init() shall be generated to support default ctor
+                    klass_basename = klass.name.split(".")[-1]
+                    ctor_name = f"{klass.name}.{klass_basename}"
+                    ctor_var = CvVariant(wrap_as=None, isconst=False, isvirtual=False, ispurevirtual=False, rettype="",
+                        rettype_qname="", args=[])
+                    dummy_func = CvFunc(filename="(dummy)", ns=klass.ns, klass=klass, name_cpp=ctor_name, name=ctor_name,
+                        isstatic=False, variants=[ctor_var])
+                    generate_wrapper_function_impl(f, dummy_func, log_f)
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:
