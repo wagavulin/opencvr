@@ -11,6 +11,7 @@ from hdr_parser_wrapper import (CvApi, CvArg, CvEnum, CvEnumerator, CvFunc,
 g_out_dir = "./autogen"
 
 g_supported_rettypes = [
+    "", # constructor
     "void",
     "bool",
     "char",
@@ -91,8 +92,15 @@ def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
         ret.append(stat)
     return ret
 
+def check_is_constructor(cvfunc:CvFunc) -> bool:
+    is_constructor = cvfunc.klass and cvfunc.klass.name.split(".")[-1] == cvfunc.name.split(".")[-1]
+    return is_constructor
+
 def gen_wrapper_func_name(func:CvFunc):
-    wrapper_func_name = "rbopencv_" + func.name.replace(".", "_")
+    if check_is_constructor(func):
+        wrapper_func_name = "wrap_" + func.klass.name.replace(".", "_") + "_init" # "rbopencv_cv_Ns1_Ns11_Foo_init"
+    else:
+        wrapper_func_name = "rbopencv_" + func.name.replace(".", "_")                 # "rbopencv_cv_Ns1_Ns11_Foo_method1"
     if func.isstatic:
         wrapper_func_name += "_static"
     return wrapper_func_name
@@ -212,11 +220,15 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
         print(file=log_f)
     if num_supported_variants == 0:
         return
+    func_cpp_basename = cvfunc.name_cpp.split(".")[-1]
     supported_vars = sorted(supported_vars, reverse=True, key=lambda var: len(var.args))
     wrapper_func_name = gen_wrapper_func_name(cvfunc)
-    is_constructor = cvfunc.klass and cvfunc.klass.name.split(".")[-1] == cvfunc.name.split(".")[-1]
+    is_constructor = check_is_constructor(cvfunc)
     is_instance_method = cvfunc.klass and cvfunc.isstatic == False
-    print(f'static VALUE {wrapper_func_name}(int argc, VALUE *argv, VALUE klass)', file=f)
+    if is_constructor:
+        print(f'static VALUE {wrapper_func_name}(int argc, VALUE *argv, VALUE self)', file=f)
+    else:
+        print(f'static VALUE {wrapper_func_name}(int argc, VALUE *argv, VALUE klass)', file=f)
     print(f'{{', file=f)
     ### gen-func-wrapper-start ###
     ns = get_namespace_of_func(cvfunc)
@@ -379,7 +391,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
             klassname_us = cvfunc.klass.name.replace(".", "_")
             wrap_struct = f"Wrap_{klassname_us}"
             data_type_instance = f"{klassname_us}_type"
-            ctor_cname = cvfunc.klass.name.replace("_", '::')
+            ctor_cname = cvfunc.klass.name.replace(".", '::')
             f.write(f"            struct {wrap_struct} *ptr;\n")
             f.write(f"            TypedData_Get_Struct(self, struct {wrap_struct}, &{data_type_instance}, ptr);\n")
             args_str = ", ".join(cac_args)
@@ -393,7 +405,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
             name_cpp_dcol = cvfunc.name_cpp.replace(".", "::")
             if is_instance_method:
                 klassname_us = cvfunc.klass.name.replace(".", "_")
-                f.write(f"get_{klassname_us}(klass)->{name_cpp_dcol}")
+                f.write(f"get_{klassname_us}(klass)->{func_cpp_basename}")
             else:              # call global function
                 f.write(f"{name_cpp_dcol}")
             f.write(f"({', '.join(cac_args)});\n")
@@ -502,7 +514,23 @@ def generate_code(api:CvApi):
                 print(f"    VALUE parent_mod = get_parent_module_by_wname(mCV2, \"{parent_mod_name}\");", file=fcr)
                 print(f'    {c_klass} = rb_define_class_under(parent_mod, "{cvrb_klass_basename}", rb_cObject);', file=fcr)
                 print(f"    rb_define_alloc_func({c_klass}, wrap_{us_klass_name}_alloc);", file=fcr)
-                #print(f'    rb_define_private_method({c_klass}, "initialize", RUBY_METHOD_FUNC(wrap_{klass.name.replace(".", "_")}_init), -1);', file=fcr)
+                if not isabstract:
+                    print(f'    rb_define_private_method({c_klass}, "initialize", RUBY_METHOD_FUNC(wrap_{klass.name.replace(".", "_")}_init), -1);', file=fcr)
+                for func in klass.funcs:
+                    func_basename = func.name.split(".")[-1] # "cv.Ns1.Ns11.method1" -> "method1"
+                    stats = check_func_variants_support_status(func)
+                    num_supported_variants = 0
+                    for stat in stats:
+                        if stat[0]:
+                            num_supported_variants += 1
+                    if func.isstatic:
+                        pass
+                    else:
+                        if num_supported_variants == 0:
+                            continue
+                        wrapper_func_name = gen_wrapper_func_name(func)
+                        #print(f'    rb_define_method({c_klass}, "{func_basename}", RUBY_METHOD_FUNC(rbopencv_{us_klass_name}_{func_basename}), -1);', file=fcr)
+                        print(f'    rb_define_method({c_klass}, "{func_basename}", RUBY_METHOD_FUNC({wrapper_func_name}), -1);', file=fcr)
                 print(f"}}", file=fcr)
 
                 # Write rbopenv_wrapclass.hpp
@@ -552,26 +580,59 @@ def generate_code(api:CvApi):
                 fwc.write(f"    ptr->v = new {qname}(value);\n")
                 fwc.write(f"    return a;\n")
                 fwc.write(f"}}\n")
-                fwc.write(f"static VALUE wrap_{us_klass_name}_init(int argc, VALUE *argv, VALUE self); // implemented in rbopencv_funcs.hpp\n\n")
-
-
+                has_ctor = False
+                num_supported_ctor_variants = 0
+                for func in klass.funcs:
+                    if check_is_constructor(func):
+                        has_ctor = True
+                        stats = check_func_variants_support_status(func)
+                        for stat in stats:
+                            if stat[0]:
+                                num_supported_ctor_variants += 1
+                if has_ctor == False or num_supported_ctor_variants >= 1:
+                    fwc.write(f"static VALUE wrap_{us_klass_name}_init(int argc, VALUE *argv, VALUE self); // implemented in rbopencv_funcs.hpp\n\n")
 
     with open(f"{g_out_dir}/rbopencv_enum_converter.hpp", "w") as f:
         pass
     with (open(f"{g_out_dir}/rbopencv_funcs.hpp", "w") as f,
           open("./autogen/log.txt", "w") as log_f):
             for _, cvfunc in api.cvfuncs.items():
-                #if cvfunc.klass:
-                #    continue
+                support_stats = check_func_variants_support_status(cvfunc)
+                num_supported_variants = 0
+                supported_vars:list[CvVariant] = []
+                for i in range(len(cvfunc.variants)):
+                    var = cvfunc.variants[i]
+                    stat = support_stats[i]
+                    if stat[0]:
+                        num_supported_variants += 1
+                        supported_vars.append(cvfunc.variants[i])
+                        gen_stat = "Generate"
+                    else:
+                        gen_stat = "Skip"
+                    print(f"{gen_stat} |{stat[1]}| {cvfunc.name} {i} {var.rettype}", file=log_f, end="")
+                    for arg in var.args:
+                        print(f" {arg.tp}", file=log_f, end="")
+                    print(file=log_f)
+                if num_supported_variants == 0:
+                    continue
                 generate_wrapper_function_impl(f, cvfunc, log_f)
             for ns in sorted_namespaces:
-                if ns.name == "cv":
-                    continue
                 for klass in ns.klasses:
-                    c_klass = f'c{klass.name.replace(".", "_")}'     # cv_Ns1_Ns11_Foo
-                    f.write(f"static VALUE wrap_{c_klass}_init(int argc, VALUE *argv, VALUE self) {{\n")
-                    f.write( "    return Qnil;\n")
-                    f.write( "}\n")
+                    has_ctor = False
+                    for func in klass.funcs:
+                        if check_is_constructor(func):
+                            has_ctor = True
+                            break
+                    isabstract = check_is_abstract_class(klass)
+                    if (not has_ctor) and (not isabstract):
+                        # If ctor is not defined, ClassName_init() shall be generated to support default ctor
+                        klass_basename = klass.name.split(".")[-1]
+                        ctor_name = f"{klass.name}.{klass_basename}"
+                        ctor_var = CvVariant(wrap_as=None, isconst=False, isvirtual=False, ispurevirtual=False, rettype="",
+                            rettype_qname="", args=[])
+                        dummy_func = CvFunc(filename="(dummy)", ns=klass.ns, klass=klass, name_cpp=ctor_name, name=ctor_name,
+                            isstatic=False, variants=[ctor_var])
+                        generate_wrapper_function_impl(f, dummy_func, log_f)
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:
