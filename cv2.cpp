@@ -574,7 +574,7 @@ bool rbopencv_to(VALUE obj, std::vector<T>& value){
 }
 
 template<typename T>
-static VALUE rbopencv_from(T& src) {
+static VALUE rbopencv_from(const T& src) {
     TRACE_PRINTF("[rbopencv_from primary] should not be used\n");
     return Qnil;
 }
@@ -597,7 +597,7 @@ VALUE rbopencv_from(const cv::Mat& m){
 }
 
 template<>
-VALUE rbopencv_from(int& value){
+VALUE rbopencv_from(const int& value){
     TRACE_PRINTF("[rbopencv_from int]\n");
     return INT2NUM(value);
 }
