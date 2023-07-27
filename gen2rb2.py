@@ -481,16 +481,18 @@ def generate_code(api:CvApi):
             name_us = ns.name.replace(".", "_")
             print(f"static MethodDef methods_{name_us}[] = {{", file=f)
             for cvfunc in ns.funcs:
+                funcnames_rb = set()
                 support_stats = check_func_variants_support_status(cvfunc)
-                num_supported_variants = 0
-                for stat in support_stats:
-                    if stat[0]:
-                        num_supported_variants += 1
-                if num_supported_variants == 0:
-                    continue
+                for i in range(len(cvfunc.variants)):
+                    if support_stats[i][0]:
+                        if cvfunc.variants[i].wrap_as:
+                            funcname_rb = cvfunc.variants[i].wrap_as
+                        else:
+                            funcname_rb = cvfunc.name.split(".")[-1]
+                        funcnames_rb.add(funcname_rb)
                 wrapper_func_name = gen_wrapper_func_name(cvfunc)
-                funcname_rb = cvfunc.name.split(".")[-1]
-                print('    {"%s", %s},' % (funcname_rb, wrapper_func_name), file=f)
+                for funcname_rb in funcnames_rb:
+                    print('    {"%s", %s},' % (funcname_rb, wrapper_func_name), file=f)
             print(f"    {{NULL, NULL}}", file=f)
             print(f"}};", file=f)
             print(f"static ConstDef consts_{name_us}[] = {{", file=f)
@@ -557,20 +559,21 @@ def generate_code(api:CvApi):
                 if has_ctor == False or num_supported_ctor_variants >= 1:
                     print(f'    rb_define_private_method({c_klass}, "initialize", RUBY_METHOD_FUNC(wrap_{klass.name.replace(".", "_")}_init), -1);', file=fcr)
             for func in klass.funcs:
-                func_basename = func.name.split(".")[-1] # "cv.Ns1.Ns11.method1" -> "method1"
-                stats = check_func_variants_support_status(func)
-                num_supported_variants = 0
-                for stat in stats:
-                    if stat[0]:
-                        num_supported_variants += 1
-                if num_supported_variants == 0:
-                    continue
+                funcnames_rb = set()
+                support_stats = check_func_variants_support_status(func)
+                for i in range(len(func.variants)):
+                    if support_stats[i][0]:
+                        if func.variants[i].wrap_as:
+                            funcname_rb = func.variants[i].wrap_as
+                        else:
+                            funcname_rb = func.name.split(".")[-1]
+                        funcnames_rb.add(funcname_rb)
                 wrapper_func_name = gen_wrapper_func_name(func)
-                if func.isstatic:
-                    print(f"    rb_define_singleton_method({c_klass}, \"{func_basename}\", RUBY_METHOD_FUNC({wrapper_func_name}), -1);", file=fcr)
-                else:
-                    #print(f'    rb_define_method({c_klass}, "{func_basename}", RUBY_METHOD_FUNC(rbopencv_{us_klass_name}_{func_basename}), -1);', file=fcr)
-                    print(f'    rb_define_method({c_klass}, "{func_basename}", RUBY_METHOD_FUNC({wrapper_func_name}), -1);', file=fcr)
+                for funcname_rb in funcnames_rb:
+                    if func.isstatic:
+                        print(f"    rb_define_singleton_method({c_klass}, \"{funcname_rb}\", RUBY_METHOD_FUNC({wrapper_func_name}), -1);", file=fcr)
+                    else:
+                        print(f'    rb_define_method({c_klass}, "{funcname_rb}", RUBY_METHOD_FUNC({wrapper_func_name}), -1);', file=fcr)
             print(f"}}", file=fcr)
 
             # Write rbopenv_wrapclass.hpp
@@ -594,7 +597,6 @@ def generate_code(api:CvApi):
             fwc.write(f"    return ptr->v;\n")
             fwc.write(f"}}\n")
             fwc.write(f"static VALUE wrap_{us_klass_name}_alloc(VALUE klass){{\n")
-            fwc.write(f'    printf("[%s]\\n", "{us_klass_name}");\n')
             fwc.write(f"    {wrap_struct}* ptr = nullptr;\n")
             fwc.write(f"    VALUE ret = TypedData_Make_Struct(klass, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
             fwc.write(f"    return ret;\n")

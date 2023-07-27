@@ -242,8 +242,8 @@ class BindTest < Test::Unit::TestCase
     assert_equal(ssc1.at(10), 121)
     assert_equal(ssc1.getNode("foo"), 114)
     # Class method in submodule
-    assert_equal(CV2::Ns1::Ns11::ssc1wrapAsSMethod1(11), 21)
-    assert_equal(CV2::Ns1::Ns11::ssc1wrapAsSMethod2("abcd"), 4)
+    assert_equal(CV2::Ns1::Ns11::SubSubC1::ssc1wrapAsSMethod1(11), 21)
+    assert_equal(CV2::Ns1::Ns11::SubSubC1::ssc1wrapAsSMethod2("abcd"), 4)
   end
 
   def test_submodule

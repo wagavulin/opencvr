@@ -829,7 +829,7 @@ static void init_submodule_bak(VALUE top_module, const char* name, MethodDef met
             if (is_defined)
                 submod = rb_const_get(parent_mod, name_sym);
             else {
-                printf("[%s] define %s\n", __func__, module_short_name.c_str());
+                //printf("[%s] define %s\n", __func__, module_short_name.c_str());
                 submod = rb_define_module_under(parent_mod, module_short_name.c_str());
             }
             parent_mod = submod;
