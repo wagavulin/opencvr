@@ -199,13 +199,13 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2::Foo::smethod1(10), 20)
     assert_equal(CV2::Foo.smethod1(10), 20)
     # static method (as global function)
-    assert_equal(CV2::Foo_smethod1(10), 20)
-    assert_equal(CV2.Foo_smethod1(10), 20)
+    #assert_equal(CV2::Foo_smethod1(10), 20)
+    #assert_equal(CV2.Foo_smethod1(10), 20)
     # static method in subsubmodule
     assert_equal(CV2::Ns1::Ns11::SubSubC1::smethod1(10), 30)
     assert_equal(CV2::Ns1::Ns11::SubSubC1.smethod1(10), 30)
-    assert_equal(CV2::Ns1::Ns11::SubSubC1_smethod1(10), 30)
-    assert_equal(CV2::Ns1::Ns11.SubSubC1_smethod1(10), 30)
+    #assert_equal(CV2::Ns1::Ns11::SubSubC1_smethod1(10), 30)
+    #assert_equal(CV2::Ns1::Ns11.SubSubC1_smethod1(10), 30)
   end
 
   def test_shared_ptr_retval

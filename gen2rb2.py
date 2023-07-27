@@ -563,12 +563,12 @@ def generate_code(api:CvApi):
                 for stat in stats:
                     if stat[0]:
                         num_supported_variants += 1
+                if num_supported_variants == 0:
+                    continue
+                wrapper_func_name = gen_wrapper_func_name(func)
                 if func.isstatic:
-                    pass
+                    print(f"    rb_define_singleton_method({c_klass}, \"{func_basename}\", RUBY_METHOD_FUNC({wrapper_func_name}), -1);", file=fcr)
                 else:
-                    if num_supported_variants == 0:
-                        continue
-                    wrapper_func_name = gen_wrapper_func_name(func)
                     #print(f'    rb_define_method({c_klass}, "{func_basename}", RUBY_METHOD_FUNC(rbopencv_{us_klass_name}_{func_basename}), -1);', file=fcr)
                     print(f'    rb_define_method({c_klass}, "{func_basename}", RUBY_METHOD_FUNC({wrapper_func_name}), -1);', file=fcr)
             print(f"}}", file=fcr)
