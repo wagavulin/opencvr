@@ -73,21 +73,41 @@ g_supported_argtypes = [
     #"std.vector<std.vector<>>",
 ]
 
+g_supported_enum_types = []
+g_supported_class_types = []
+
+def check_rettype_supported(rettype_qname:str):
+    if rettype_qname in g_supported_rettypes:
+        return True
+    if rettype_qname in g_supported_enum_types:
+        return True
+    if rettype_qname.startswith("Ptr<"):
+        return True
+    return False
+
+def check_argtype_supported(argtype_qname:str):
+    if argtype_qname in g_supported_argtypes:
+        return True
+    if argtype_qname in g_supported_enum_types:
+        return True
+    return False
+
 def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
     global g_supported_rettypes, g_supported_argtypes
     ret = []
     for v in func.variants:
         supported = True
         msg = ""
-        if not v.rettype_qname in g_supported_rettypes:
+        if not check_rettype_supported(v.rettype_qname):
             supported = False
             msg = f"rettype ({v.rettype_qname}) is not supported"
         for i, arg in enumerate(v.args):
-            if arg.tp_qname in g_supported_argtypes:
+            if check_argtype_supported(arg.tp_qname):
                 pass # supported
             else:
                 supported = False
                 msg = f"arg[{i}] ({arg.tp_qname}) is not supported"
+                break
         stat = (supported, msg)
         ret.append(stat)
     return ret
@@ -404,7 +424,8 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
             f.write(f"            ptr->v = new {ctor_cname}({args_str});\n")
         else:
             if not v.rettype == "void":
-                f.write(f"            {v.rettype} raw_retval;\n")
+                rettype_cpp_qname = v.rettype_qname.replace(".", "::")
+                f.write(f"            {rettype_cpp_qname} raw_retval;\n")
                 f.write(f"            raw_retval = ")
             else:
                 f.write(f"            ")
@@ -613,7 +634,25 @@ def generate_code(api:CvApi):
                 fwc.write(f"static VALUE wrap_{us_klass_name}_init(int argc, VALUE *argv, VALUE self); // implemented in rbopencv_funcs.hpp\n\n")
 
     with open(f"{g_out_dir}/rbopencv_enum_converter.hpp", "w") as f:
-        pass
+        for _, cvenum in api.cvenums.items():
+            if cvenum.name.endswith(".<unnamed>"):
+                continue
+            qname = cvenum.name.replace(".", "::")
+            f.write(f"template<>\n")
+            f.write(f"bool rbopencv_to(VALUE obj, {qname}& value){{\n")
+            f.write(f"    TRACE_PRINTF(\"[rbopencv_to {qname}]\\n\");\n")
+            f.write(f"    if (!FIXNUM_P(obj))\n")
+            f.write(f"        return false;\n")
+            f.write(f"    int tmp = FIX2INT(obj);\n")
+            f.write(f"    value = static_cast<{qname}>(tmp);\n")
+            f.write(f"    return true;\n")
+            f.write(f"}}\n")
+            f.write(f"template<>\n")
+            f.write(f"VALUE rbopencv_from(const {qname}& value){{\n")
+            f.write(f"    TRACE_PRINTF(\"[rbopencv_from {qname}] %d\", value);\n")
+            f.write(f"    return INT2NUM(static_cast<int>(value));\n")
+            f.write(f"}}\n")
+
     with (open(f"{g_out_dir}/rbopencv_funcs.hpp", "w") as f,
           open("./autogen/log.txt", "w") as log_f):
             for _, cvfunc in api.cvfuncs.items():
@@ -669,4 +708,6 @@ os.makedirs(g_out_dir, exist_ok=True)
 with open(f"{g_out_dir}/rbopencv_include.hpp", "w") as f:
     for hdr in headers:
         print(f'#include "{hdr}"', file=f)
+for _, cvenum in api.cvenums.items():
+    g_supported_enum_types.append(cvenum.name)
 generate_code(api)
