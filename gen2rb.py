@@ -1,1039 +1,724 @@
 #!/usr/bin/env python
 
-import copy
-import json
 import os
-import re
 import sys
+import typing
 
-import hdr_parser
+import hdr_parser_wrapper
+from hdr_parser_wrapper import (CvApi, CvArg, CvEnum, CvEnumerator, CvFunc,
+                                CvKlass, CvNamespace, CvVariant)
 
-g_logger = open("log-gen2rb.txt", "w")
-g_unsupported_retval_types:dict[str, int] = {}
-g_unsupported_arg_types:dict[str, int] = {}
-g_log_processed_funcs:list["FuncInfo"] = []
+g_out_dir = "./autogen"
 
-g_enums = {}
+g_supported_rettypes = [
+    "", # constructor
+    "void",
+    "bool",
+    "char",
+    "uchar",
+    "int",
+    "size_t",
+    "float",
+    "double",
+    "std.string",
+    "cv.String",
+    "cv.Mat",
+    "cv.Point",
+    "cv.Point2d",
+    "cv.Rect",
+    "cv.RotatedRect",
+    "cv.Scalar",
+    "cv.Size",
+    "std.vector<uchar>",
+    "std.vector<int>",
+    "std.vector<float>",
+    "std.vector<std.string>",
+    "std.vector<cv.String>",
+    "std.vector<cv.Mat>",
+    "std.vector<cv.Point2f>",
+    "std.vector<cv.Size>",
+]
+g_supported_argtypes = [
+    "bool",
+    "char",
+    "uchar",
+    "int",
+    "int*",
+    "size_t",
+    "float",
+    "double",
+    "double*",
+    "c_string",
+    "std.string",
+    "cv.String",
+    "cv.Mat",
+    "cv.Point",
+    "cv.Point*",
+    "cv.Point2d",
+    "cv.Point2f",
+    "cv.Point2f*",
+    "cv.Rect",
+    "cv.Rect*",
+    "cv.RotatedRect",
+    "cv.Scalar",
+    "cv.Size",
+    "cv.Size2f",
+    "cv.Size2i",
+    "std.vector<char>",
+    "std.vector<uchar>",
+    "std.vector<int>",
+    "std.vector<float>",
+    "std.vector<double>",
+    "std.vector<std.string>",
+    "std.vector<cv.String>",
+    "std.vector<cv.Mat>",
+    "std.vector<cv.Point>",
+    "std.vector<cv.Point2f>",
+    "std.vector<cv.Rect>",
+    "std.vector<cv.RotatedRect>",
+    "std.vector<cv.Size>",
+    #"std.vector<cv.>",
+    "std.vector<std.vector<int>>",
+    "std.vector<std.vector<cv.Point>>",
+    "std.vector<std.vector<cv.Point2f>>",
+    #"std.vector<std.vector<>>",
+]
 
-# "aa_bb_cc" => "Aa_Bb_cc"
-# Last element (=class name) is kept unchanged
-def to_camel_wname(wname):
-    strs = wname.split("_")
-    cap_strs = [s.capitalize() for s in strs[:-1]]
-    cap_strs.append(strs[-1])
-    return "_".join(cap_strs)
+g_unsupported_argtypes = [
+    "cv.flann.SearchParams",
+]
 
-def normalize_class_name(name):
-    return re.sub(r"^cv\.", "", name).replace(".", "_")
+g_supported_enum_types = []
+g_supported_class_types = []
 
-def handle_ptr(tp:str) -> str:
-    if tp.startswith('Ptr_'):
-        tp = 'Ptr<' + "::".join(tp.split('_')[1:]) + '>'
-    return tp
+def check_rettype_supported(rettype_qname:str):
+    if rettype_qname in g_supported_rettypes:
+        return True
+    if rettype_qname in g_supported_enum_types:
+        return True
+    if rettype_qname in g_supported_class_types:
+        return True
+    if rettype_qname.startswith("Ptr<"):
+        return True
+    return False
 
-def get_cname_if_enum(name):
-    for enum_wname, enum_cname in g_enums.items():
-        if name == enum_cname.split(".")[-1]:
-            return "::".join(enum_cname.split("."))
-    return name
+def check_argtype_supported(argtype_qname:str):
+    if argtype_qname in g_unsupported_argtypes:
+        return False
+    if argtype_qname in g_supported_argtypes:
+        return True
+    if argtype_qname in g_supported_enum_types:
+        return True
+    if argtype_qname in g_supported_class_types:
+        return True
+    return False
 
-class ArgInfo:
-    def __init__(self, arg_tuple:list):
-        self.tp:str = handle_ptr(arg_tuple[0]) # type
-        if self.tp == "string":
-            self.tp = "std::string"
-        self.name:str = arg_tuple[1]           # name
-        self.defval = arg_tuple[2]             # default value
-        self.isarray:bool = False
-        self.arraylen:int = 0
-        self.arraycvt = None
-        self.inputarg:bool = True
-        self.outputarg:bool = False
-        self.returnarg:bool = False
-        self.isrvalueref:bool = False
-        for m in arg_tuple[3]:                 # "/Ref", "/C", etc.
-            if m == "/O":
-                self.inputarg = False
-                self.outputarg = True
-                self.returnarg = True
-            elif m == "/IO":
-                self.inputarg = True
-                self.outputarg = True
-                self.returnarg = True
-            elif m == "/A":
-                raise ValueError("/A is not supported")
-            elif m == "/CA":
-                raise ValueError("/CA is not supported")
-            elif m == "/RRef":
-                print("/RRef is not supported", file=g_logger)
+def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
+    global g_supported_rettypes, g_supported_argtypes
+    ret = []
+    for v in func.variants:
+        supported = True
+        msg = ""
+        if not check_rettype_supported(v.rettype_qname):
+            supported = False
+            msg = f"rettype ({v.rettype_qname}) is not supported"
+        for i, arg in enumerate(v.args):
+            if check_argtype_supported(arg.tp_qname):
+                pass # supported
             else:
-                print(f"unhandled tuple[3]: {m}", file=g_logger)
-        self.py_inputarg:bool = False
-        self.py_outputarg:bool = False
+                supported = False
+                msg = f"arg[{i}] ({arg.tp_qname}) is not supported"
+                break
+        stat = (supported, msg)
+        ret.append(stat)
+    return ret
 
-    def dump(self, depth, file=sys.stdout):
-        indent = "  " * depth
-        print(f"{indent}tp: {self.tp}, name: {self.name}, defval: {self.defval}", file=file)
-        print(f"{indent}isarray: {self.isarray}, arraylen: {self.arraylen}, arraycvt: {self.arraycvt}", file=file)
-        print(f"{indent}input,output,return,rrvalue: {self.inputarg}, {self.outputarg}, {self.returnarg}, {self.isrvalueref}", file=file)
+g_instance_used_as_retval_types = []
 
-class FuncVariant:
-    def __init__(self, classname:str, name:str, decl, isconstructor:bool, isphantom:bool=False):
-        self.classname:str = classname
-        self.name:str = name
-        self.wname:str = name
-        self.isconstructor = isconstructor
-        self.isphantom = isphantom
-        self.wrapas:str = None
+def check_is_constructor(cvfunc:CvFunc) -> bool:
+    is_constructor = cvfunc.klass and cvfunc.klass.name.split(".")[-1] == cvfunc.name.split(".")[-1]
+    return is_constructor
 
-        self.docstring = decl[5]
+def gen_wrapper_func_name(func:CvFunc):
+    if check_is_constructor(func):
+        wrapper_func_name = "wrap_" + func.klass.name.replace(".", "_") + "_init" # "rbopencv_cv_Ns1_Ns11_Foo_init"
+    else:
+        wrapper_func_name = "rbopencv_" + func.name.replace(".", "_")                 # "rbopencv_cv_Ns1_Ns11_Foo_method1"
+    if func.isstatic:
+        wrapper_func_name += "_static"
+    return wrapper_func_name
 
-        self.rettype = decl[4] or handle_ptr(decl[1])
-        if self.rettype == "void":
-            self.rettype = ""
-        self.args:list[ArgInfo] = []
-        self.array_counters = {}
-        for s in decl[2]:
-            if s.startswith("="):
-                self.wrapas = s[1:]
-        for a in decl[3]:
-            ainfo = ArgInfo(a)
-            self.args.append(ainfo)
+def get_namespace_of_func(func:CvFunc):
+    ret = None
+    if func.ns:
+        ret = func.ns
+    elif func.klass:
+        if func.klass.ns:
+            ret = func.klass.ns
+        elif func.klass.klass:
+            if func.klass.klass.ns:
+                ret = func.klass.klass.ns
+    if ret is None:
+        print(f"[Error] Could not find namespace of {func.name}")
+        exit(1)
+    return ret
 
-    def dump(self, depth, file=sys.stdout):
-        indent = "  " * depth
-        print(f"{indent}classname: {self.classname}", file=file)
-        print(f"{indent}name: {self.name}", file=file)
-        print(f"{indent}wname: {self.wname}", file=file)
-        print(f"{indent}wrapas: {self.wrapas}", file=file)
-        print(f"{indent}isconstructor: {self.isconstructor}", file=file)
-        print(f"{indent}isphantom: {self.isphantom}", file=file)
-        print(f"{indent}docstring: len: {len(self.docstring)}", file=file)
-        print(f"{indent}rettype: {self.rettype}", file=file)
+_g_abstract_classes = [
+    "cv.Ns1.Ns11.SubSubI2",
+    "cv.Algorithm",
+    "cv.ml.ANN_MLP",
+    "cv.ml.Boost",
+    "cv.ml.DTrees",
+    "cv.ml.EM",
+    "cv.ml.KNearest",
+    "cv.ml.LogisticRegression",
+    "cv.ml.NormalBayesClassifier",
+    "cv.ml.RTrees",
+    "cv.ml.SVM",
+    "cv.ml.SVMSGD",
+    "cv.ml.StatModel",
+    "cv.ml.TrainData",
+    "cv.detail.Estimator",
+    "cv.detail.ExposureCompensator",
+    "cv.detail.BlocksCompensator",
+    "cv.detail.BundleAdjusterBase",
+    "cv.detail.FeaturesMatcher",
+    "cv.detail.PairwiseSeamFinder",
+    "cv.detail.SeamFinder",
+    "cv.AKAZE",
+    "cv.AffineFeature",
+    "cv.AgastFeatureDetector",
+    "cv.AlignExposures",
+    "cv.AlignMTB",
+    "cv.BOWTrainer",
+    "cv.BRISK",
+    "cv.BackgroundSubtractor",
+    "cv.BackgroundSubtractorKNN",
+    "cv.BackgroundSubtractorMOG2",
+    "cv.BaseCascadeClassifier",
+    "cv.CLAHE",
+    "cv.CalibrateCRF",
+    "cv.CalibrateDebevec",
+    "cv.CalibrateRobertson",
+    "cv.DISOpticalFlow",
+    "cv.DenseOpticalFlow",
+    "cv.DescriptorMatcher",
+    "cv.FaceDetectorYN",
+    "cv.FaceRecognizerSF",
+    "cv.FarnebackOpticalFlow",
+    "cv.FastFeatureDetector",
+    "cv.Formatter",
+    "cv.GFTTDetector",
+    "cv.GeneralizedHough",
+    "cv.GeneralizedHoughBallard",
+    "cv.GeneralizedHoughGuil",
+    "cv.KAZE",
+    "cv.LineSegmentDetector",
+    "cv.MSER",
+    "cv.MergeDebevec",
+    "cv.MergeExposures",
+    "cv.MergeMertens",
+    "cv.MergeRobertson",
+    "cv.ORB",
+    "cv.QRCodeEncoder",
+    "cv.SIFT",
+    "cv.SimpleBlobDetector",
+    "cv.SparseOpticalFlow",
+    "cv.SparsePyrLKOpticalFlow",
+    "cv.StereoBM",
+    "cv.StereoMatcher",
+    "cv.StereoSGBM",
+    "cv.Tonemap",
+    "cv.TonemapDrago",
+    "cv.TonemapMantiuk",
+    "cv.TonemapReinhard",
+    "cv.Tracker",
+    "cv.TrackerDaSiamRPN",
+    "cv.TrackerGOTURN",
+    "cv.TrackerMIL",
+    "cv.TrackerNano",
+    "cv.VariationalRefinement",
+    "cv.WarperCreator",
+    # Not abstarct, but cannot be instantiated
+    "cv.dnn.TextDetectionModel",
+    "cv.UMatData",
+    "cv.Mat",
+    # Not abstract, but cannot be instantiated because no default ctor
+    "cv.DetectionBasedTracker",
+]
 
-g_init_generated_classes = []
-class FuncInfo:
-    def __init__(self, classname:str, name:str, cname:str, isconstructor:bool, namespace:str, is_static:bool, is_static_global:bool):
-        self.classname:str = classname
-        self.name:str = name
-        self.cname:str = cname
-        self.origname:str = name
-        self.isconstructor:bool = isconstructor
-        self.namespace:str = namespace
-        self.is_static:bool = is_static
-        self.is_static_global:bool = is_static_global
-        self.variants:list[FuncVariant] = []
-        self.header:str = None
+def check_is_abstract_class(cvklass:CvKlass):
+    return cvklass.name in _g_abstract_classes
 
-    def dump(self, depth, file=sys.stdout):
-        indent = "  " * depth
-        print(f"{indent}classname: {self.classname}", file=file)
-        print(f"{indent}name: {self.name}", file=file)
-        print(f"{indent}cname: {self.cname}", file=file)
-        print(f"{indent}origname: {self.origname}", file=file)
-        print(f"{indent}isconstructor: {self.isconstructor}", file=file)
-        print(f"{indent}namespace: {self.namespace}", file=file)
-        print(f"{indent}is_static: {self.is_static}", file=file)
-        for i, variant in enumerate(self.variants):
-            print(f"{indent}variants[{i}]", file=file)
-            variant.dump(depth+1, file)
-
-    def add_variant(self, decl, isphantom=False):
-        self.variants.append(FuncVariant(self.classname, self.name, decl, self.isconstructor, isphantom))
-
-    def get_wrapper_name(self):
-        name = self.name
-        if self.classname:
-            classname = self.classname + "_"
-            if "[" in name:
-                name = "getelem"
-        else:
-            classname = ""
-
-        if self.is_static:
-            name += "_static"
-
-        return "rbopencv_" + self.namespace.replace('.','_') + '_' + classname + name
-
-    def get_wrapper_prototype(self):
-        full_fname = self.get_wrapper_name()
-        if self.isconstructor:
-            g_init_generated_classes.append(self.classname)
-            wrapper_fname = "cv_" + self.classname + "_init" # "cv_Ns1_Foo_init"
-            return f"static VALUE wrap_{wrapper_fname}(int argc, VALUE *argv, VALUE self)"
-        if self.is_static:
-            return "static VALUE %s(int argc, VALUE *argv)" % (full_fname)
-        return "static VALUE %s(int argc, VALUE *argv, VALUE klass)" % (full_fname)
-
-    def is_target_function(self) -> tuple[int, list[tuple[bool, str]]]:
-        unsupported_names = [
-            "initUndistortRectifyMap",
-            "undistortPoints",
-        ]
-        supported_rettypes = [
-            "", # void
-            "Mat", "cv::Mat",
-            "int",
-            "char",
-            "uchar",
-            "size_t",
-            "bool",
-            "double",
-            "float",
-            "String", "cv::String", "std::string",
-            "Point",
-            "Point2f",
-            "Point2d",
-            "Rect",
-            "RotatedRect",
-            "Scalar",
-            "Size", "Size2i",
-            "Size2f",
-            "vector_Mat",
-            "vector_int",
-            "vector_char",
-            "vector_uchar",
-            "vector_float", "std::vector<float>",
-            "vector_double",
-            "vector_String", "vector_string", "std::vector<String>",
-            "vector_Point",
-            "vector_Point2f",
-            "vector_Rect",
-            "FileNode",
-            "Moments",
-        ]
-        supported_argtypes = [
-            "Mat",
-            "int",
-            "char",
-            "uchar",
-            "int*",
-            "size_t",
-            "bool",
-            "double",
-            "double*",
-            "float",
-            "String", "std::string",
-            "c_string",
-            "Point",
-            "Point*",
-            "Point2f",
-            "Point2f*",
-            "Point2d",
-            "Rect",
-            "Rect*",
-            "RotatedRect",
-            "Scalar",
-            "Size", "Size2i",
-            "Size2f",
-            "vector_Mat",
-            "vector_int",
-            "vector_char",
-            "vector_uchar",
-            "vector_float",
-            "vector_double",
-            "vector_String", "vector_string",
-            "vector_Point",
-            "vector_Point2f",
-            "vector_Rect",
-            "vector_vector_int",
-            "vector_vector_Point2f",
-            "FileNode",
-            "Moments",
-        ]
-        def is_supported_rettype(rettype:str):
-            if rettype in supported_rettypes:
-                return True
-            if rettype.startswith("Ptr<"):
-                return True
-            for enum_wname, enum_name in g_enums.items():
-                if rettype.split("::")[-1] == enum_wname.split("_")[-1]:
-                    return True
-            return False
-        def is_supported_argtype(argtype:str):
-            if argtype in supported_argtypes:
-                return True
-            for enum_wname, enum_name in g_enums.items():
-                if argtype.split("_")[-1] == enum_wname.split("_")[-1]:
-                    return True
-            return False
-
-        num_supported_variants:int = 0
-        support_statuses:list[tuple[bool, str]] = []
-        for v in self.variants:
-            num_mandatory_args = 0
-            num_optional_args = 0
-            strs = self.cname.split("::")
-            if self.name in unsupported_names:
-                support_statuses.append((False, "listed in unsupported names"))
-                continue
-            if not is_supported_rettype(v.rettype):
-                support_statuses.append((False, f"retval type is not supported: {self.variants[0].rettype}"))
-                g_unsupported_retval_types[v.rettype] = g_unsupported_retval_types.get(v.rettype, 0) + 1
-                continue
-            need_continue = False
-            for a in v.args:
-                if not is_supported_argtype(a.tp):
-                    support_statuses.append((False, f"input argument type is not supported: {a.name} {a.tp}"))
-                    g_unsupported_arg_types[a.tp] = g_unsupported_arg_types.get(a.tp, 0) + 1
-                    need_continue = True
-                    break
-                if a.defval == "":
-                    num_mandatory_args += 1
-                else:
-                    num_optional_args += 1
-                if a.py_outputarg:
-                    # py_outputarg is True, it's used as return value,
-                    # so rbopencv_from will be used
-                    if not a.tp in supported_rettypes:
-                        support_statuses.append((False, f"output argument type is not supported: {a.name} {a.tp}"))
-                        need_continue = True
-                        break
-            if need_continue:
-                continue
-            if num_mandatory_args >= 10:
-                support_statuses.append((False, f"too many mandatory arguments: {num_mandatory_args}"))
-                continue
-            if num_optional_args >= 10:
-                support_statuses.append((False, f"too many optional arguments: {num_optional_args}"))
-                continue
-            support_statuses.append((True, ""))
+def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
+    support_stats = check_func_variants_support_status(cvfunc)
+    num_supported_variants = 0
+    supported_vars:list[CvVariant] = []
+    for i in range(len(cvfunc.variants)):
+        stat = support_stats[i]
+        if stat[0]:
             num_supported_variants += 1
-        return num_supported_variants, support_statuses
+            supported_vars.append(cvfunc.variants[i])
+    if num_supported_variants == 0:
+        return
+    func_cpp_basename = cvfunc.name_cpp.split(".")[-1]
+    supported_vars = sorted(supported_vars, reverse=True, key=lambda var: len(var.args))
+    wrapper_func_name = gen_wrapper_func_name(cvfunc)
+    is_constructor = check_is_constructor(cvfunc)
+    is_instance_method = cvfunc.klass and cvfunc.isstatic == False
+    if is_constructor:
+        print(f'static VALUE {wrapper_func_name}(int argc, VALUE *argv, VALUE self)', file=f)
+    else:
+        print(f'static VALUE {wrapper_func_name}(int argc, VALUE *argv, VALUE klass)', file=f)
+    print(f'{{', file=f)
+    ### gen-func-wrapper-start ###
+    ns = get_namespace_of_func(cvfunc)
+    f.write(f"    using namespace {ns.name.replace('.', '::')};\n\n")
+    f.write( "    VALUE h = rb_check_hash_type(argv[argc-1]);\n")
+    f.write( "    if (!NIL_P(h)) {\n        --argc;\n    }\n")
+    f.write( "    int arity = rb_check_arity(argc, 0, UNLIMITED_ARGUMENTS);\n")
+    f.write( "\n")
+    f.write( "    std::string err_msg;\n")
+    for var_idx, v in enumerate(supported_vars):
+        # variables for raw variable definitions (rvd)
+        rvd_raw_types:list[str] = []
+        rvd_raw_var_names:list[str] = []
+        rvd_raw_default_values:list[str] = []
+        # variables for value variable definitions (vvd)
+        vvd_names:list[str] = []
+        vvd_value_var_names:list[str] = []
+        vvd_corr_raw_var_names:list[str] = []
+        # variables for rb_scan_args() (rsa)
+        rsa_num_mandatory_args = 0
+        rsa_num_optional_args = 0
+        # variables for C++ API calling (cac)
+        cac_args:list[str] = []
+        cac_raw_out_var_names:list[str] = []
+        # variables for return values handling (rh)
+        rh_raw_var_names:list[str] = []
 
-    def gen_code(self, f, classes:dict[str, "ClassInfo"]) -> None:
-        global g_log_processed_funcs
-        self.num_supported_variants, self.support_statuses = self.is_target_function()
-        g_log_processed_funcs.append(self)
-        if self.num_supported_variants == 0:
-            return
-        proto = self.get_wrapper_prototype()
-        f.write(f"%s\n{{\n" % (proto,))
-        f.write(f"    using namespace %s;\n\n" % self.namespace.replace(".", "::"))
-        f.write(f"    VALUE h = rb_check_hash_type(argv[argc-1]);\n")
-        f.write(f"    if (!NIL_P(h)) {{\n        --argc;\n    }}\n")
-        f.write(f"    int arity = rb_check_arity(argc, 0, UNLIMITED_ARGUMENTS);\n")
-        f.write(f"\n")
-        f.write(f"    std::string err_msg;\n")
-        #f.write(f"    rbPrepareArgumentConversionErrorsStorage({self.num_supported_variants});\n")
-        vars = []
-        for var_idx, var in enumerate(self.variants):
-            if self.support_statuses[var_idx][0]:
-                vars.append(var)
-        vars = sorted(vars, reverse=True, key=lambda var: len(var.args))
-        for var_idx, v in enumerate(vars):
-            # variables for raw variable definitions (rvd)
-            rvd_raw_types = []
-            rvd_raw_var_names = []
-            rvd_raw_default_values = []
-            # variables for value variable definitions (vvd)
-            vvd_names = []
-            vvd_value_var_names = []
-            vvd_corr_raw_var_names = []
-            # variables for rb_scan_args() (rsa)
-            rsa_num_mandatory_args = 0
-            rsa_num_optional_args = 0
-            # variables for C++ API calling (cac)
-            cac_args = []
-            cac_raw_out_var_names = []
-            # variables for return values handling (rh)
-            rh_raw_var_names = []
+        ordered_args:list[CvArg] = []
+        tmp_mandatory_args:list[CvArg] = []
+        tmp_out_pyin_args:list[CvArg] = []
+        tmp_optional_args:list[CvArg] = []
+        for a in v.args:
+            if a.inputarg == False and a.outputarg == True and a.defval == "":
+                tmp_out_pyin_args.append(a)
+            else:
+                if a.defval:
+                    tmp_optional_args.append(a)
+                else:
+                    tmp_mandatory_args.append(a)
+        ordered_args.extend(tmp_mandatory_args)
+        ordered_args.extend(tmp_out_pyin_args)
+        ordered_args.extend(tmp_optional_args)
 
-            ordered_args = []
-            tmp_mandatory_args = []
-            tmp_out_pyin_args = []
-            tmp_optional_args = []
-            for a in v.args:
-                if a.inputarg == False and a.outputarg == True and a.py_inputarg == True and a.defval == "":
-                    tmp_out_pyin_args.append(copy.deepcopy(a))
+        # Collect values
+        if v.rettype and not v.rettype == "void":
+            rh_raw_var_names.append("raw_retval")
+        # C++ API calling is based on original arguments order
+        for a in v.args:
+            if a.inputarg == False and a.outputarg == True and a.tp[-1] == "*":
+                # "&raw_x" is used when calling C++ API.
+                cac_args.append(f"&raw_{a.name}")
+            else:
+                if a.tp == "c_string":
+                    cac_args.append(f"raw_{a.name}.c_str()")
                 else:
-                    if a.defval:
-                        tmp_optional_args.append(copy.deepcopy(a))
-                    else:
-                        tmp_mandatory_args.append(copy.deepcopy(a))
-            ordered_args.extend(tmp_mandatory_args)
-            ordered_args.extend(tmp_out_pyin_args)
-            ordered_args.extend(tmp_optional_args)
-
-            # Collect values
-            if v.rettype:
-                rh_raw_var_names.append("raw_retval")
-            # C++ API calling is based on original arguments order
-            for a in v.args:
-                if a.inputarg == False and a.outputarg == True and a.tp[-1] == "*":
-                    # "&raw_x" is used when calling C++ API.
-                    cac_args.append(f"&raw_{a.name}")
+                    cac_args.append(f"raw_{a.name}")
+        # Other process is based on ordered arguments
+        for a in ordered_args:
+            if a.inputarg == False and a.outputarg == True and a.tp[-1] == "*":
+                # If the arg is pointer and for OUT arg (e.g. int* x),
+                # it's declared as non-pointer (int raw_x).
+                rvd_raw_types.append(a.tp[:-1])
+            else:
+                if a.tp == "c_string":
+                    rvd_raw_types.append("std::string")
                 else:
-                    if a.tp == "c_string":
-                        cac_args.append(f"raw_{a.name}.c_str()")
-                    else:
-                        cac_args.append(f"raw_{a.name}")
-            # Other process is based on ordered arguments
-            for a in ordered_args:
-                if a.inputarg == False and a.outputarg == True and a.tp[-1] == "*":
-                    # If the arg is pointer and for OUT arg (e.g. int* x),
-                    # it's declared as non-pointer (int raw_x).
-                    rvd_raw_types.append(a.tp[:-1])
+                    rvd_raw_types.append(a.tp_qname.replace(".", "::"))
+            rvd_raw_var_names.append(f"raw_{a.name}")
+            if not a.tp[-1] == "*":
+                # If pointer arg has default value, it's always 0 or nullptr (Is this correct?)
+                #   => No. cv.Cuda.GpuMat.GpuMat takes GpuAllocator*=GpuMat::defaultAllocator() [TBD]
+                # It should not be used as default value to avoid error (For example, Point raw_point = 0;)
+                rvd_raw_default_values.append(a.defval)
+            else:
+                rvd_raw_default_values.append("")
+            if a.inputarg:
+                vvd_names.append(a.name)
+                vvd_value_var_names.append(f"value_{a.name}")
+                vvd_corr_raw_var_names.append(f"raw_{a.name}")
+                if a.defval:
+                    rsa_num_optional_args += 1
                 else:
-                    if a.tp == "c_string":
-                        rvd_raw_types.append("std::string")
-                    else:
-                        rvd_raw_types.append(a.tp)
-                rvd_raw_types[-1] = get_cname_if_enum(rvd_raw_types[-1])
-                if "_" in rvd_raw_types[-1] and not rvd_raw_types[-1] == "size_t" and not rvd_raw_types[-1].startswith("vector_"):
-                    # if type name satifies the above condition, it's probably an enum class
-                    # For example, "HOGDescriptor_HistogramNormType"
-                    # It should be changed to "HOGDescriptor::HistogramNormType"
-                    rvd_raw_types[-1] = "::".join(rvd_raw_types[-1].split("_"))
-                method_enum_conv_list = [
-                    {"method": "cv::Stitcher::create", "rvd_raw_type": "cv::FileStorage::Mode", "conv_to": "cv::Stitcher::Mode"},
-                ]
-                for method_enum in method_enum_conv_list:
-                    if self.cname == method_enum["method"] and rvd_raw_types[-1] == method_enum["rvd_raw_type"]:
-                        rvd_raw_types[-1] = method_enum["conv_to"]
-                        break
-                rvd_raw_var_names.append(f"raw_{a.name}")
-                if not a.tp[-1] == "*":
-                    # If pointer arg has default value, it's always 0 or nullptr (Is this correct?)
-                    # It should not be used as default value to avoid error (For example, Point raw_point = 0;)
-                    rvd_raw_default_values.append(a.defval)
-                else:
-                    rvd_raw_default_values.append("")
-                if a.inputarg:
+                    rsa_num_mandatory_args += 1
+            else:
+                if a.outputarg == True:
                     vvd_names.append(a.name)
                     vvd_value_var_names.append(f"value_{a.name}")
                     vvd_corr_raw_var_names.append(f"raw_{a.name}")
-                    if a.defval:
-                        rsa_num_optional_args += 1
-                    else:
-                        rsa_num_mandatory_args += 1
-                else:
-                    if a.outputarg == True and a.py_inputarg == True:
-                        vvd_names.append(a.name)
-                        vvd_value_var_names.append(f"value_{a.name}")
-                        vvd_corr_raw_var_names.append(f"raw_{a.name}")
-                        rsa_num_optional_args += 1
-                if a.outputarg:
-                    cac_raw_out_var_names.append(f"raw_{a.name}")
-                    rh_raw_var_names.append(f"raw_{a.name}")
+                    rsa_num_optional_args += 1
+            if a.outputarg:
+                cac_raw_out_var_names.append(f"raw_{a.name}")
+                rh_raw_var_names.append(f"raw_{a.name}")
 
-            # Generate raw variable definitions (rvd)
-            f.write(f"    if (arity >= {rsa_num_mandatory_args}) {{\n")
-            for i in range(len(rvd_raw_types)):
-                if rvd_raw_default_values[i]:
-                    f.write(f"        {rvd_raw_types[i]} {rvd_raw_var_names[i]} = {rvd_raw_default_values[i]};\n")
-                else:
-                    f.write(f"        {rvd_raw_types[i]} {rvd_raw_var_names[i]};\n")
-            f.write("\n")
+        # Generate raw variable definitions (rvd)
+        f.write(f"    if (arity >= {rsa_num_mandatory_args}) {{\n")
+        for i in range(len(rvd_raw_types)):
+            if rvd_raw_default_values[i]:
+                f.write(f"        {rvd_raw_types[i]} {rvd_raw_var_names[i]} = {rvd_raw_default_values[i]};\n")
+            else:
+                f.write(f"        {rvd_raw_types[i]} {rvd_raw_var_names[i]}; // {v.args[i].tp_qname}\n")
+        f.write("\n")
 
-            # Generate value variable definitions (vvd)
-            for i in range(len(vvd_value_var_names)):
-                f.write(f"        VALUE {vvd_value_var_names[i]};\n")
-            f.write("\n")
+        # Generate value variable definitions (vvd)
+        for i in range(len(vvd_value_var_names)):
+            f.write(f"        VALUE {vvd_value_var_names[i]};\n")
+        f.write("\n")
 
-            # Call rb_scan_args() (rsa)
-            rsa_scan_args_fmt = f"{rsa_num_mandatory_args}{rsa_num_optional_args}"
-            f.write(f"        int scan_ret = rb_scan_args(argc, argv, \"{rsa_scan_args_fmt}\"")
-            for i in range(len(vvd_value_var_names)):
-                f.write(f", &{vvd_value_var_names[i]}")
-            f.write(");\n")
+        # Call rb_scan_args() (rsa)
+        rsa_scan_args_fmt = f"{rsa_num_mandatory_args}{rsa_num_optional_args}"
+        f.write(f"        int scan_ret = rb_scan_args(argc, argv, \"{rsa_scan_args_fmt}\"")
+        for i in range(len(vvd_value_var_names)):
+            f.write(f", &{vvd_value_var_names[i]}")
+        f.write(");\n")
 
-            # Check the result of rb_scan_args()
-            f.write("        bool conv_args_ok = true;\n")
-            for i in range(rsa_num_mandatory_args):
-                f.write(f"        conv_args_ok &= rbopencv_to({vvd_value_var_names[i]}, {vvd_corr_raw_var_names[i]});\n")
-                f.write(f"        if (!conv_args_ok) {{\n")
-                f.write(f"            err_msg = \" can't parse '{vvd_names[i]}'\";\n")
+        # Check the result of rb_scan_args()
+        f.write("        bool conv_args_ok = true;\n")
+        for i in range(rsa_num_mandatory_args):
+            f.write(f"        conv_args_ok &= rbopencv_to({vvd_value_var_names[i]}, {vvd_corr_raw_var_names[i]});\n")
+            f.write(f"        if (!conv_args_ok) {{\n")
+            f.write(f"            err_msg = \" can't parse '{vvd_names[i]}'\";\n")
+            f.write(f"        }}\n")
+        rsa_idx_optional_start = rsa_num_mandatory_args
+        rsa_idx_optional_end = rsa_num_mandatory_args + rsa_num_optional_args - 1
+        if rsa_num_optional_args >= 1:
+            for i in range(rsa_idx_optional_start, rsa_idx_optional_end+1):
+                f.write(f"        if (scan_ret >= {i+1}) {{\n")
+                f.write(f"            conv_args_ok &= rbopencv_to({vvd_value_var_names[i]}, {vvd_corr_raw_var_names[i]});\n")
+                f.write(f"            if (!conv_args_ok) {{\n")
+                f.write(f"                err_msg = \" can't parse '{vvd_names[i]}'\";\n")
+                f.write(f"            }}\n")
                 f.write(f"        }}\n")
-            rsa_idx_optional_start = rsa_num_mandatory_args
-            rsa_idx_optional_end = rsa_num_mandatory_args + rsa_num_optional_args - 1
-            if rsa_num_optional_args >= 1:
-                for i in range(rsa_idx_optional_start, rsa_idx_optional_end+1):
-                    f.write(f"        if (scan_ret >= {i+1}) {{\n")
-                    f.write(f"            conv_args_ok &= rbopencv_to({vvd_value_var_names[i]}, {vvd_corr_raw_var_names[i]});\n")
-                    f.write(f"            if (!conv_args_ok) {{\n")
-                    f.write(f"                err_msg = \" can't parse '{vvd_names[i]}'\";\n")
-                    f.write(f"            }}\n")
-                    f.write(f"        }}\n")
-            f.write("\n")
+        f.write("\n")
 
-            # Call rb_get_kwargs() for keyword arguments
-            if rsa_num_optional_args >= 1:
-                f.write(f"        if (!NIL_P(h)) {{\n")
-                f.write(f"            ID table[{rsa_num_optional_args}];\n")
-                f.write(f"            VALUE values[{rsa_num_optional_args}];\n")
-                for i in range(rsa_idx_optional_start, rsa_idx_optional_end+1):
-                    j = i - rsa_idx_optional_start
-                    f.write(f"            table[{j}] = rb_intern(\"{vvd_names[i]}\");\n")
-                f.write(f"            rb_get_kwargs(h, table, 0, {rsa_num_optional_args}, values);\n")
+        # Call rb_get_kwargs() for keyword arguments
+        if rsa_num_optional_args >= 1:
+            f.write(f"        if (!NIL_P(h)) {{\n")
+            f.write(f"            ID table[{rsa_num_optional_args}];\n")
+            f.write(f"            VALUE values[{rsa_num_optional_args}];\n")
+            for i in range(rsa_idx_optional_start, rsa_idx_optional_end+1):
+                j = i - rsa_idx_optional_start
+                f.write(f"            table[{j}] = rb_intern(\"{vvd_names[i]}\");\n")
+            f.write(f"            rb_get_kwargs(h, table, 0, {rsa_num_optional_args}, values);\n")
 
-                # Check the result of rb_get_kwargs()
-                for i in range(rsa_idx_optional_start, rsa_idx_optional_end+1):
-                    j = i - rsa_idx_optional_start
-                    f.write(f"            if (values[{j}] == Qundef) {{\n")
-                    f.write(f"                // Do nothing. Already set by arg w/o keyword, or use {vvd_corr_raw_var_names[i]} default value\n")
-                    f.write(f"            }} else {{\n")
-                    f.write(f"                conv_args_ok &= rbopencv_to(values[{j}], {vvd_corr_raw_var_names[i]});\n")
-                    f.write(f"                if (!conv_args_ok) {{\n")
-                    f.write(f"                    err_msg = \"Can't parse '{vvd_names[i]}'\";\n")
-                    f.write(f"                }}\n")
-                    f.write(f"            }}\n")
-                f.write(f"        }}\n")
+            # Check the result of rb_get_kwargs()
+            for i in range(rsa_idx_optional_start, rsa_idx_optional_end+1):
+                j = i - rsa_idx_optional_start
+                f.write(f"            if (values[{j}] == Qundef) {{\n")
+                f.write(f"                // Do nothing. Already set by arg w/o keyword, or use {vvd_corr_raw_var_names[i]} default value\n")
+                f.write(f"            }} else {{\n")
+                f.write(f"                conv_args_ok &= rbopencv_to(values[{j}], {vvd_corr_raw_var_names[i]});\n")
+                f.write(f"                if (!conv_args_ok) {{\n")
+                f.write(f"                    err_msg = \"Can't parse '{vvd_names[i]}'\";\n")
+                f.write(f"                }}\n")
+                f.write(f"            }}\n")
+            f.write(f"        }}\n")
 
-            # Call C++ API if arguments are ready
-            f.write("        if (conv_args_ok) {\n")
-            if self.isconstructor:
-                wrap_struct = f"Wrap_{self.classname}"
-                data_type_instance = f"{self.classname}_type"
-                ctor_cname = self.classname.replace("_", '::')
-                f.write(f"            struct {wrap_struct} *ptr;\n")
-                f.write(f"            TypedData_Get_Struct(self, struct {wrap_struct}, &{data_type_instance}, ptr);\n")
-                args_str = ", ".join(cac_args)
-                f.write(f"            ptr->v = new {ctor_cname}({args_str});\n")
-            else:
-                if not v.rettype == "":
-                    rettype = get_cname_if_enum(v.rettype)
-                    f.write(f"            {rettype} raw_retval;\n")
-                    f.write(f"            raw_retval = ")
-                else:
-                    f.write(f"            ")
-                if self.classname and not self.is_static: # call instance method
-                    cxx_method_name = self.name
-                    if self.origname:
-                        cxx_method_name = self.origname
-                    f.write(f"get_{self.classname}(klass)->{cxx_method_name}")
-                else:              # call global function
-                    cxx_method_name = self.cname
-                    if self.origname:
-                        if self.name[0].isupper() and not self.name in ["PCACompute2"]:
-                            cxx_method_name = self.cname
-                        else:
-                            cxx_method_name = self.origname
-                        if self.is_static and not(self.is_static_global):
-                            cname_prefix = "::".join(self.cname.split("::")[0:-1])
-                            cname = f"{cname_prefix}::{self.origname}"
-                            cxx_method_name = cname
-                            pass
-                    f.write(f"{cxx_method_name}")
-                f.write(f"({', '.join(cac_args)});\n")
-
-            # Convert the return value(s)
-            num_ruby_retvals = len(rh_raw_var_names)
-            if num_ruby_retvals == 0:
-                # If no retvals for ruby, return Qnil
-                f.write(f"            return Qnil;\n")
-            elif num_ruby_retvals == 1:
-                # If 1 ruby retval, return it as VALUE
-                retval_raw_var_name = rh_raw_var_names[0]
-                f.write(f"            VALUE value_retval = rbopencv_from({retval_raw_var_name});\n")
-                f.write(f"            return value_retval;\n")
-            else:
-                # If 2 or more ruby retvals, return as array
-                f.write(f"            VALUE value_retval_array = rb_ary_new3({num_ruby_retvals}")
-                for raw_var_name in rh_raw_var_names:
-                    f.write(f", rbopencv_from({raw_var_name})")
-                f.write(");\n")
-                f.write(f"            return value_retval_array;\n")
-            f.write("        } else {\n")
-            f.write("            rbPopulateArgumentConversionErrors(err_msg);\n")
-            f.write("        }\n")
-            f.write("    }\n")
-        f.write(f"    rbRaiseCVOverloadException(\"{self.name}\");\n")
-        f.write("    return Qnil;\n")
-        f.write("}\n\n")
-        return
-
-
-g_class_idx = 0
-class ClassInfo:
-    def __init__(self, name:str, decl=None):
-        global g_class_idx
-        self.decl_idx = g_class_idx
-        g_class_idx += 1
-        self.cname = name.replace(".", "::")   # name: "cv.Ns1.Bar", cname: "cv::Ns1::Bar"
-        self.wname = normalize_class_name(name) # "Ns1_Bar"
-        self.name = self.wname
-        self.isinterface = False
-        self.isalgorithm = False
-        self.methods: dict[str, FuncInfo] = {}
-        self.mappables: list[str] = []
-        self.base = None
-        self.constructor: FuncInfo = None
-
-        if decl:
-            bases = decl[1].split()[1:]
-            if len(bases) > 1:
-                print("Note: Class %s has more than 1 base class (not supported by Python C extensions)" % (self.name,))
-                print("      Bases: ", " ".join(bases))
-                print("      Only the first base class will be used")
-                #return sys.exit(-1)
-            elif len(bases) == 1:
-                self.base = bases[0].strip(",")
-                if self.base.startswith("cv::"):
-                    self.base = self.base[4:]
-                if self.base == "Algorithm":
-                    self.isalgorithm = True
-                self.base = self.base.replace("::", "_")
-
-    def dump(self, depth, file=sys.stdout):
-        indent = "  " * depth
-        print(f"{indent}cname: {self.cname}", file=file)
-        print(f"{indent}wname: {self.wname}", file=file)
-        print(f"{indent}name: {self.name}", file=file)
-        print(f"{indent}base: {self.base}", file=file)
-        print(f"{indent}isinterface: {self.isinterface}", file=file)
-        print(f"{indent}isalgorithm: {self.isalgorithm}", file=file)
-        print(f"{indent}constructor: {not (self.constructor==None)}", file=file)
-        for i, method_name in enumerate(self.methods):
-            print(f"{indent}methods[{i}] {method_name}", file=file)
-            self.methods[method_name].dump(depth+1, file)
-
-class Namespace:
-    def __init__(self):
-        self.funcs: dict[str, FuncInfo] = {}
-        self.consts: dict[str, str] = {}     # "MyEnum2_MYENUM2_VALUE_A" => "cv::Ns1::MyEnum2::MYENUM2_VALUE_A"
-
-    def dump(self, depth, file=sys.stdout):
-        indent = "  " * depth
-        for i, name in enumerate(self.funcs):
-            print(f"{indent}funcs[{i}] {name}", file=file)
-
-class RubyWrapperGenerator:
-    def __init__(self):
-        self.parser = hdr_parser.CppHeaderParser(generate_umat_decls=False, generate_gpumat_decls=False)
-        self.classes: dict[str, ClassInfo] = {}
-        self.namespaces: dict[str, Namespace] = {}
-        self.consts: dict[str, str] = {}
-        self.enums: dict[str, str] = {}
-
-    def add_class(self, stype:str, name:str, decl:list):
-        classinfo = ClassInfo(name, decl)
-        if classinfo.name in self.classes:
-            print(f"Generator error: class {classinfo.name} (cname={classinfo.cname}) already exists")
-            exit(1)
-        self.classes[classinfo.name] = classinfo
-
-    def split_decl_name(self, name):
-        chunks = name.split('.')
-        namespace = chunks[:-1]
-        classes = []
-        while namespace and '.'.join(namespace) not in self.parser.namespaces:
-            classes.insert(0, namespace.pop())
-        return namespace, classes, chunks[-1]
-
-    def add_const(self, name:str, decl:list):
-        # name: "cv.Ns1.MyEnum2.MYENUM2_VALUE_A"
-        cname = name.replace('.','::') # "cv::Ns1::MyEnum2::MYENUM2_VALUE_A"
-        namespace, classes, name = self.split_decl_name(name)
-        # namespace: ["cv", "Ns1"], classes: ["MyEnum2"], name: "MYENUM2_VALUE_A"
-        namespace = '.'.join(namespace) # "cv.Ns1"
-        name = '_'.join(classes+[name]) # "MyEnum2_MYENUM2_VALUE_A"
-        ns = self.namespaces.setdefault(namespace, Namespace())
-        if name in ns.consts:
-            print("Generator error: constant %s (cname=%s) already exists" \
-                % (name, cname))
-            sys.exit(-1)
-        ns.consts[name] = cname
-
-    def add_enum(self, name:str, decl:list):
-        # name: "cv.Ns1.MyEnum2"
-        wname = normalize_class_name(name) # "Ns1_MyEnum2"
-        if wname.endswith("<unnamed>"):
-            wname = None
+        # Call C++ API if arguments are ready
+        f.write("        if (conv_args_ok) {\n")
+        is_ret_class_instance = False
+        if is_constructor:
+            klassname_us = cvfunc.klass.name.replace(".", "_")
+            wrap_struct = f"Wrap_{klassname_us}"
+            data_type_instance = f"{klassname_us}_type"
+            ctor_cname = cvfunc.klass.name.replace(".", '::')
+            f.write(f"            struct {wrap_struct} *ptr;\n")
+            f.write(f"            TypedData_Get_Struct(self, struct {wrap_struct}, &{data_type_instance}, ptr);\n")
+            args_str = ", ".join(cac_args)
+            f.write(f"            ptr->v = new {ctor_cname}({args_str});\n")
         else:
-            self.enums[wname] = name
-        const_decls = decl[3] # [ ["const cv.Ns1.MyEnum2.MYENUM2_VALUE_A", "-1", [], [], None, ""], ...]
-
-        for decl in const_decls:
-            name = decl[0] # "const cv.Ns1.MyEnum2.MYENUM2_VALUE_A"
-            self.add_const(name.replace("const ", "").strip(), decl)
-
-    def add_func(self, decl:list, header:str):
-        # decl[0]: "cv.Ns1.Bar.method1"
-        namespace, classes, barename = self.split_decl_name(decl[0])
-        # namespace: ["cv", "Ns1"], classes_list: ["Bar"], barename: "method1"
-        cname = "::".join(namespace+classes+[barename]) # "cv::Ns1::Bar::method1"
-        name = barename # "method1"
-        classname = ''
-        bareclassname = ''
-        if classes:
-            classname = normalize_class_name('.'.join(namespace+classes)) # "Ns1_Bar"
-            bareclassname = classes[-1]                                   # "Bar"
-        namespace_str = '.'.join(namespace) # "cv.Ns1"
-        isconstructor = name == bareclassname
-        is_static = False
-        isphantom = False
-        mappable = None
-        ispurevirtual = False
-        for m in decl[2]:
-            if m == "/S":
-                is_static = True
-            elif m == "/PV":
-                ispurevirtual = True
-            elif m.startswith("/mappable="):
-                mappable = m[10:]
-                self.classes[classname].mappables.append(mappable)
-                return
-
-        if isconstructor:
-            name = "_".join(classes[:-1]+[name])
-
-        if is_static:
-            # Add it as a method to the class
-            func_map = self.classes[classname].methods
-            func = func_map.setdefault(name, FuncInfo(classname, name, cname, isconstructor, namespace_str, is_static, False))
-            func.add_variant(decl, isphantom)
-
-            # Add it as global function
-            g_name = "_".join(classes+[name]) # "SubSubC1_smethod1"
-            w_classes = [] # will be ["SubSubC1"]
-            for i in range(0, len(classes)):
-                classes_i = classes[:i+1]
-                classname_i = normalize_class_name('.'.join(namespace+classes_i))
-                w_classname = self.classes[classname_i].wname
-                namespace_prefix = normalize_class_name('.'.join(namespace)) + '_'
-                if w_classname.startswith(namespace_prefix):
-                    w_classname = w_classname[len(namespace_prefix):]
-                w_classes.append(w_classname)
-            g_wname = "_".join(w_classes+[name]) # "SubSubC1_smethod1"
-            func_map = self.namespaces.setdefault(namespace_str, Namespace()).funcs
-            func = func_map.setdefault(g_name, FuncInfo("", g_name, cname, isconstructor, namespace_str, False, True))
-            func.add_variant(decl, isphantom)
-            if g_wname != g_name:  # TODO OpenCV 5.0
-                wfunc = func_map.setdefault(g_wname, FuncInfo("", g_wname, cname, isconstructor, namespace_str, False))
-                wfunc.add_variant(decl, isphantom)
-        else:
-            if classname and not isconstructor:
-                func_map = self.classes[classname].methods
-            else:
-                func_map = self.namespaces.setdefault(namespace_str, Namespace()).funcs
-            func = func_map.setdefault(name, FuncInfo(classname, name, cname, isconstructor, namespace_str, is_static, False))
-            func.add_variant(decl, isphantom)
-        if classname and isconstructor:
-            self.classes[classname].constructor = func
-        if classname and ispurevirtual:
-            self.classes[classname].isinterface = True
-        func.header = header
-
-    def gen(self, headers:list[str], out_dir:str):
-        fout_inc = open(f"{out_dir}/rbopencv_include.hpp", "w")
-        hdr_json_out_dir = f"{out_dir}/parsed-headers"
-        os.makedirs(hdr_json_out_dir, exist_ok=True)
-        for hdr in headers:
-            decls = self.parser.parse(hdr)
-            hdr_fname = os.path.split(hdr)[1]
-            hdr_stem = os.path.splitext(hdr_fname)[0]
-            out_json_path = f"{hdr_json_out_dir}/{hdr_stem}.json"
-            with open(out_json_path, "w") as f:
-                json.dump(decls, f, indent=2)
-            fout_inc.write(f'#include "{hdr}"\n')
-            for decl in decls:
-                # for i in range(len(decl)):
-                #     if i == 3:
-                #         for j in range(len(decl[i])):
-                #             print(f"  item[{j}] {decl[i][j]}")
-                #     else:
-                #         if decl[i] is None:
-                #             print(f"{i} is_None")
-                #         else:
-                #             print(f"{i} {decl[i]}")
-                name:str = decl[0]
-                if name.startswith("struct ") or name.startswith("class"):
-                    p = name.find(" ")
-                    stype = name[:p]          # "class" of "struct"
-                    name = name[p+1:].strip() # "cv.Ns1.Bar"
-                    self.add_class(stype, name, decl)
-                elif name.startswith("const "):
-                    self.add_const(name.replace("const ", "").strip(), decl)
-                elif name.startswith("enum "):
-                    # name: "enum class cv.Ns1.MyEnum2"
-                    self.add_enum(name.rsplit(" ", 1)[1], decl) # arg: "cv.Ns1.MyEnum2"
-                else:
-                    self.add_func(decl, hdr)
-        fout_inc.close()
-        processed = dict()
-        def process_isalgorithm(classinfo):
-            if classinfo.isalgorithm or classinfo in processed:
-                return classinfo.isalgorithm
-            res = False
-            if classinfo.base:
-                if classinfo.base in self.classes:
-                    res = process_isalgorithm(self.classes[classinfo.base])
-                else:
-                    base2 = classinfo.base.split("_")[1]
-                    res = process_isalgorithm(self.classes[base2])
-                #assert not (res == True or classinfo.isalgorithm is False), "Internal error: " + classinfo.name + " => " + classinfo.base
-                classinfo.isalgorithm |= res
-                res = classinfo.isalgorithm
-            processed[classinfo] = True
-            return res
-        for name, classinfo in self.classes.items():
-            process_isalgorithm(classinfo)
-        for k, v in self.enums.items():
-            g_enums[k] = v
-        new_methods = []
-        delete_methods = []
-        for cls_name, classinfo in self.classes.items():
-            for method_name, method in classinfo.methods.items():
-                for var in method.variants:
-                    if var.wrapas:
-                        #print(f"Method {cls_name} {method_name} => {var.wrapas}")
-                        wrapas_method = copy.deepcopy(method)
-                        wrapas_var = copy.deepcopy(var)
-                        wrapas_method.origname = wrapas_method.name
-                        wrapas_method.name = wrapas_var.wrapas
-                        cname_prefix = "::".join(wrapas_method.cname.split("::")[0:-1])
-                        wrapas_method.cname = f"{cname_prefix}::{wrapas_method.name}"
-                        wrapas_method.variants = []
-                        wrapas_method.variants.append(wrapas_var)
-                        add_item = {
-                            "class_name": cls_name,
-                            "method_name": wrapas_method.name,
-                            "method": wrapas_method
-                        }
-                        new_methods.append(add_item)
-                        delete_item = {
-                            "class_name": cls_name,
-                            "method_name": method_name,
-                        }
-                        delete_methods.append(delete_item)
-        for new_method in new_methods:
-            cls_name = new_method["class_name"]
-            method_name = new_method["method_name"]
-            method = new_method["method"]
-            self.classes[cls_name].methods[method_name] = method
-        for delete_method in delete_methods:
-            cls_name = delete_method["class_name"]
-            method_name = delete_method["method_name"]
-            if method_name in self.classes[cls_name].methods:
-                del self.classes[cls_name].methods[method_name]
-        new_methods = []
-        delete_methods = []
-        for ns_name, namespace in self.namespaces.items():
-            for method_name, method in namespace.funcs.items():
-                for var in method.variants:
-                    if var.wrapas:
-                        wrapas_method = copy.deepcopy(method)
-                        wrapas_var = copy.deepcopy(var)
-                        wrapas_method.origname = wrapas_method.cname
-                        wrapas_method.name = wrapas_var.wrapas
-                        cname_prefix = "::".join(wrapas_method.cname.split("::")[0:-1])
-                        wrapas_method.cname = f"{cname_prefix}::{wrapas_method.name}"
-                        wrapas_method.variants = []
-                        wrapas_method.variants.append(wrapas_var)
-                        add_item = {
-                            "ns_name": ns_name,
-                            "method_name": wrapas_method.name,
-                            "method": wrapas_method
-                        }
-                        new_methods.append(add_item)
-                        delete_item = {
-                            "ns_name": ns_name,
-                            "method_name": method_name,
-                        }
-                        delete_methods.append(delete_item)
-        for new_method in new_methods:
-            ns_name = new_method["ns_name"]
-            method_name = new_method["method_name"]
-            method = new_method["method"]
-            self.namespaces[ns_name].funcs[method_name] = method
-        for delete_method in delete_methods:
-            ns_name = delete_method["ns_name"]
-            method_name = delete_method["method_name"]
-            if method_name in self.namespaces[ns_name].funcs:
-                del self.namespaces[ns_name].funcs[method_name]
-
-        # for cls_name, classinfo in self.classes.items():
-        #     for method_name, method in classinfo.methods.items():
-        #         for var in method.variants:
-        #             print(f"Method {cls_name} {method_name}")
-        # for ns_name, namespace in self.namespaces.items():
-        #     for method_name, method in namespace.funcs.items():
-        #         for var in method.variants:
-        #             print(f"Func {ns_name} {method_name}")
-
-        # for i, class_name in enumerate(self.classes):
-        #     print(f"classes[{i}] {class_name}")
-        #     self.classes[class_name].dump(1)
-        classlist = list(self.classes.items())
-        classlist.sort()
-        classlist1 = [(classinfo.decl_idx, name, classinfo) for name, classinfo in classlist]
-        classlist1.sort()
-
-        # gen namespace registration
-        with open(f"{out_dir}/rbopencv_namespaceregistration.hpp", "w") as f:
-            for ns_name, ns in sorted(self.namespaces.items()):
-                # ns_name: "cv.Ns1.Ns11"
-                ns_str = ns_name[2:]                        # ".Ns1.Ns11"
-                normed_name = normalize_class_name(ns_name) # "Ns1_Ns11"
-                f.write(f'init_submodule(mCV2, "CV2{ns_str}", methods_{normed_name}, consts_{normed_name});\n')
-        # gen wrapclass
-        with open(f"{out_dir}/rbopencv_wrapclass.hpp", "w") as f:
-            for decl_idx, name, classinfo in classlist1:
-                cClass = f"c{name}" # cFoo
-                cname = classinfo.cname # cv::Ns1::Bar
-                wrap_struct = f"struct Wrap_{name}" # struct WrapFoo
-                classtype = f"{name}_type"
-                f.write(f"static VALUE {cClass};\n")
-                f.write(f"{wrap_struct} {{\n")
-                f.write(f"    Ptr<{cname}> v;\n")
-                f.write(f"}};\n")
-                f.write(f"static void wrap_{name}_free({wrap_struct}* ptr){{\n")
-                f.write(f"    ptr->v.reset();\n")
-                f.write(f"    ruby_xfree(ptr);\n")
-                f.write(f"}};\n")
-                f.write(f"static const rb_data_type_t {classtype} {{\n")
-                f.write(f"    \"{name}\",\n")
-                f.write(f"    {{NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_{name}_free), NULL}},\n")
-                f.write(f"    NULL, NULL,\n")
-                f.write(f"    RUBY_TYPED_FREE_IMMEDIATELY\n")
-                f.write(f"}};\n")
-                f.write(f"static Ptr<{cname}> get_{name}(VALUE self){{\n")
-                f.write(f"    {wrap_struct}* ptr;\n")
-                f.write(f"    TypedData_Get_Struct(self, {wrap_struct}, &{name}_type, ptr);\n")
-                f.write(f"    return ptr->v;\n")
-                f.write(f"}}\n")
-                f.write(f"static VALUE wrap_{name}_alloc(VALUE klass){{\n")
-                f.write(f"    {wrap_struct}* ptr = nullptr;\n")
-                f.write(f"    VALUE ret = TypedData_Make_Struct(klass, {wrap_struct}, &{name}_type, ptr);\n")
-                f.write(f"    return ret;\n")
-                f.write(f"}}\n")
-                f.write(f"template<>\n")
-                f.write(f"VALUE rbopencv_from(const Ptr<{cname}>& value){{\n")
-                f.write(f"    TRACE_PRINTF(\"[rbopencv_from Ptr<{cname}>]\\n\");\n")
-                f.write(f"    {wrap_struct} *ptr;\n")
-                f.write(f"    VALUE a = wrap_{name}_alloc({cClass});\n")
-                f.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{name}_type, ptr);\n")
-                f.write(f"    ptr->v = value;\n")
-                f.write(f"    return a;\n")
-                f.write(f"}}\n")
-                isinterface = classinfo.isalgorithm or classinfo.isinterface
-                if not isinterface:
-                    f.write(f"template<>\n")
-                    f.write(f"VALUE rbopencv_from(const {cname}& value){{\n")
-                    f.write(f"    TRACE_PRINTF(\"[rbopencv_from {cname}]\\n\");\n")
-                    f.write(f"    {wrap_struct} *ptr;\n")
-                    f.write(f"    VALUE a = wrap_{name}_alloc({cClass});\n")
-                    f.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{name}_type, ptr);\n")
-                    f.write(f"    ptr->v = new {cname}(value);\n")
-                    f.write(f"    return a;\n")
-                    f.write(f"}}\n")
-                f.write(f"static VALUE wrap_cv_{name}_init(int argc, VALUE *argv, VALUE self); // implemented in rbopencv_funcs.hpp\n\n")
-        # gen class registration
-        with open(f"{out_dir}/rbopencv_classregistration.hpp", "w") as f:
-            for decl_idx, name, classinfo in classlist1:
-                as_shared_ptr = classinfo.isinterface or classinfo.isalgorithm or name == "Algorithm" or name == "Fizz"
-                # name: "Ns1_Bar"
-                barename = classinfo.cname.split("::")[-1] # "Bar"
-                cClass = f"c{name}" # cNs1_Bar
-                wrap_struct = f" struct Wrap_{name}" # struct Wrap_Ns1_Bar
-                classtype = f"{name}_type"
-                camel_wname = to_camel_wname(classinfo.wname) # "dnn_Dict" => "Dnn_Dict"
-                f.write(f"{{\n")
-                f.write(f'    VALUE parent_mod = get_parent_module_by_wname(mCV2, "{camel_wname}");\n')
-                f.write(f"    {cClass} = rb_define_class_under(parent_mod, \"{barename}\", rb_cObject);\n")
-                f.write(f"    rb_define_alloc_func({cClass}, wrap_{name}_alloc);\n")
-                if (classinfo.constructor is None) and (not classinfo.isalgorithm) and (not classinfo.isinterface):
+            func_cpp_qname = cvfunc.name_cpp.replace(".", "::")
+            rettype_cpp_qname = v.rettype_qname.replace(".", "::")
+            if v.rettype_qname in api.cvklasses.keys() and not v.rettype_qname == "cv.Mat":
+                is_ret_class_instance = True
+                if is_instance_method:
+                    klassname_us = cvfunc.klass.name.replace(".", "_")
+                    f.write(f"            cv::Ptr<{rettype_cpp_qname}> p = new {rettype_cpp_qname}{{get_{klassname_us}(klass)->{func_cpp_basename}")
                     pass
                 else:
-                    f.write(f"    rb_define_private_method({cClass}, \"initialize\", RUBY_METHOD_FUNC(wrap_cv_{name}_init), -1);\n")
-                for name, func in classinfo.methods.items():
-                    num_supported_variants, _ = func.is_target_function()
-                    if num_supported_variants == 0:
-                        continue
-                    wrapper_name = func.get_wrapper_name()
-                    if func.is_static:
-                        f.write(f"    rb_define_singleton_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
+                    f.write(f"            cv::Ptr<{rettype_cpp_qname}> p = new {rettype_cpp_qname}{{{func_cpp_qname}")
+                f.write(f"({', '.join(cac_args)})}};\n")
+                f.write(f"            VALUE value_retval = rbopencv_from(p);\n")
+            else:
+                if v.rettype == "void":
+                    f.write(f"            ")
+                else:
+                    f.write(f"            {rettype_cpp_qname} raw_retval;\n")
+                    f.write(f"            raw_retval = ")
+                if is_instance_method:
+                    klassname_us = cvfunc.klass.name.replace(".", "_")
+                    f.write(f"get_{klassname_us}(klass)->{func_cpp_basename}")
+                else:              # call global function
+                    f.write(f"{func_cpp_qname}")
+                f.write(f"({', '.join(cac_args)});\n")
+        # Convert the return value(s)
+        num_ruby_retvals = len(rh_raw_var_names)
+        if is_ret_class_instance:
+            f.write(f"            return value_retval;\n")
+        elif num_ruby_retvals == 0:
+            # If no retvals for ruby, return Qnil
+            f.write(f"            return Qnil;\n")
+        elif num_ruby_retvals == 1:
+            # If 1 ruby retval, return it as VALUE
+            retval_raw_var_name = rh_raw_var_names[0]
+            f.write(f"            VALUE value_retval = rbopencv_from({retval_raw_var_name});\n")
+            f.write(f"            return value_retval;\n")
+        else:
+            # If 2 or more ruby retvals, return as array
+            f.write(f"            VALUE value_retval_array = rb_ary_new3({num_ruby_retvals}")
+            for raw_var_name in rh_raw_var_names:
+                f.write(f", rbopencv_from({raw_var_name})")
+            f.write(");\n")
+            f.write(f"            return value_retval_array;\n")
+        f.write("        } else {\n")
+        f.write("            rbPopulateArgumentConversionErrors(err_msg);\n")
+        f.write("        }\n")
+        f.write("    }\n")
+    f.write(f"    rbRaiseCVOverloadException(\"{cvfunc.name}\");\n")
+    f.write("    return Qnil;\n")
+    f.write("}\n\n")
+
+def generate_code(api:CvApi):
+    sorted_namespaces:list[CvNamespace] = []
+    for _, ns in api.cvnamespaces.items():
+        sorted_namespaces.append(ns)
+    sorted(sorted_namespaces, key=lambda ns: ns.name)
+    sorted_klasses:list[CvKlass] = []
+    for _, klass in api.cvklasses.items():
+        sorted_klasses.append(klass)
+    sorted(sorted_klasses, key=lambda klass: klass.name)
+
+    with open(f"{g_out_dir}/rbopencv_namespaceregistration.hpp", "w") as f:
+        for ns in sorted_namespaces:
+            nsname_us = ns.name.replace(".", "_")
+            print(f"init_submodule(\"{ns.name}\", methods_{nsname_us}, consts_{nsname_us});", file=f)
+    with open(f"{g_out_dir}/rbopencv_modules_content.hpp", "w") as f:
+        for ns in sorted_namespaces:
+            name_us = ns.name.replace(".", "_")
+            print(f"static MethodDef methods_{name_us}[] = {{", file=f)
+            for cvfunc in ns.funcs:
+                funcnames_rb = set()
+                support_stats = check_func_variants_support_status(cvfunc)
+                for i in range(len(cvfunc.variants)):
+                    if support_stats[i][0]:
+                        if cvfunc.variants[i].wrap_as:
+                            funcname_rb = cvfunc.variants[i].wrap_as
+                        else:
+                            funcname_rb = cvfunc.name.split(".")[-1]
+                        funcnames_rb.add(funcname_rb)
+                wrapper_func_name = gen_wrapper_func_name(cvfunc)
+                for funcname_rb in funcnames_rb:
+                    print('    {"%s", %s},' % (funcname_rb, wrapper_func_name), file=f)
+            print(f"    {{NULL, NULL}}", file=f)
+            print(f"}};", file=f)
+            print(f"static ConstDef consts_{name_us}[] = {{", file=f)
+            for cvenum in ns.enums:
+                if cvenum.isscoped:
+                    for v in cvenum.values:
+                        def_name = "_".join(v.name.split(".")[-2:])
+                        def_value = v.name.replace(".", "::")
+                        print('    {"%s", static_cast<long>(%s)},' % (def_name, def_value), file=f)
+                else:
+                    for v in cvenum.values:
+                        def_name = v.name.split(".")[-1]
+                        def_value = v.name.replace(".", "::")
+                        print('    {"%s", static_cast<long>(%s)},' % (def_name, def_value), file=f)
+            for cvklass in ns.klasses:
+                for cvenum in cvklass.enums:
+                    for v in cvenum.values:
+                        def_name = "_".join(v.name.split(".")[-2:])
+                        def_value = v.name.replace(".", "::")
+                        print('    {"%s", static_cast<long>(%s)},' % (def_name, def_value), file=f)
+            print(f"    {{NULL, 0}}", file=f)
+            print(f"}};\n", file=f)
+    with (open(f"{g_out_dir}/rbopencv_classregistration.hpp", "w") as fcr,
+          open(f"{g_out_dir}/rbopencv_wrapclass.hpp", "w") as fwc):
+        for klass in sorted_klasses:
+            if klass.name == "cv.Mat":
+                continue
+            def get_parent_mod_name(klass:CvKlass) -> str:
+                if klass.ns:
+                    mod_name_raw = klass.ns.name
+                elif klass.klass:
+                    mod_name_raw = klass.klass.ns.name
+                else:
+                    mod_name_raw = "" # NotReached
+                strs = mod_name_raw.split(".")
+                if strs[0] == "cv":
+                    strs[0] = "CV2"
+                for i in range(1, len(strs)):
+                    strs[i] = strs[i].capitalize()
+                return "_".join(strs)
+            # Example: cv.Ns1.Ns11.Foo class
+            parent_mod_name = get_parent_mod_name(klass)     # CV2_Ns1_Ns11
+            us_klass_name = klass.name.replace(".", "_")     # underscored class name: cv_Ns1_Ns11_Foo
+            c_klass = f'c{us_klass_name}'                    # ccv_Ns1_Ns11_Foo (for VALUE name)
+            cvrb_klass_basename = klass.name.split(".")[-1]  # Foo
+            wrap_struct = f"struct Wrap_{us_klass_name}"     # struct Wrap_cv_Ns1_Ns11_Foo
+            qname = klass.name.replace(".", "::")            # "cv::Ns1::Ns11::Foo"
+            isabstract = check_is_abstract_class(klass)
+            # Write rbopenv_classregistration.hpp
+            print(f"{{", file=fcr)
+            print(f"    VALUE parent_mod = get_parent_module_by_wname(mCV2, \"{parent_mod_name}\");", file=fcr)
+            print(f'    {c_klass} = rb_define_class_under(parent_mod, "{cvrb_klass_basename}", rb_cObject);', file=fcr)
+            print(f"    rb_define_alloc_func({c_klass}, wrap_{us_klass_name}_alloc);", file=fcr)
+            if not isabstract:
+                has_ctor = False
+                num_supported_ctor_variants = 0
+                for func in klass.funcs:
+                    if check_is_constructor(func):
+                        has_ctor = True
+                        ctor_stats = check_func_variants_support_status(func)
+                        for stat in ctor_stats:
+                            if stat[0]:
+                                num_supported_ctor_variants += 1
+                if has_ctor == False or num_supported_ctor_variants >= 1:
+                    print(f'    rb_define_private_method({c_klass}, "initialize", RUBY_METHOD_FUNC(wrap_{klass.name.replace(".", "_")}_init), -1);', file=fcr)
+            for func in klass.funcs:
+                funcnames_rb = set()
+                support_stats = check_func_variants_support_status(func)
+                for i in range(len(func.variants)):
+                    if support_stats[i][0]:
+                        if func.variants[i].wrap_as:
+                            funcname_rb = func.variants[i].wrap_as
+                        else:
+                            funcname_rb = func.name.split(".")[-1]
+                        funcnames_rb.add(funcname_rb)
+                wrapper_func_name = gen_wrapper_func_name(func)
+                for funcname_rb in funcnames_rb:
+                    if func.isstatic:
+                        print(f"    rb_define_singleton_method({c_klass}, \"{funcname_rb}\", RUBY_METHOD_FUNC({wrapper_func_name}), -1);", file=fcr)
                     else:
-                        f.write(f"    rb_define_method({cClass}, \"{func.name}\", RUBY_METHOD_FUNC({wrapper_name}), -1);\n")
-                f.write(f"}}\n")
-        # gen rbopencv_to() and rbopencv_from() for enum types
-        with open(f"{out_dir}/rbopencv_enum_converter.hpp", "w") as f:
-            for name, dot_name in self.enums.items(): # name: "Ns1_MyEnum2", dot_name: "Ns1.Ns11.MyEnum2"
-                cname = dot_name.replace(".", "::")
-                f.write(f"template<>\n")
-                f.write(f"bool rbopencv_to(VALUE obj, {cname}& value){{\n")
-                f.write(f"    TRACE_PRINTF(\"[rbopencv_to {name}]\\n\");\n")
-                f.write(f"    if (!FIXNUM_P(obj))\n")
-                f.write(f"        return false;\n")
-                f.write(f"    int tmp = FIX2INT(obj);\n")
-                f.write(f"    value = static_cast<{cname}>(tmp);\n")
-                f.write(f"    return true;\n")
-                f.write(f"}}\n")
-                f.write(f"template<>\n")
-                f.write(f"VALUE rbopencv_from(const {cname}& value){{\n")
-                f.write(f"    TRACE_PRINTF(\"[rbopencv_from {name}] %d\", value);\n")
-                f.write(f"    return INT2NUM(static_cast<int>(value));\n")
-                f.write(f"}}\n")
-        # gen funcs
-        with open(f"{out_dir}/rbopencv_funcs.hpp", "w") as f:
-            funcs:list[FuncInfo] = []
-            for ns_name, ns in sorted(self.namespaces.items()):
-                #print(f"ns_name: {ns_name}")
-                #ns.dump(1)
-                if ns_name.split(".")[0] != "cv":
-                    continue
-                for name, func in sorted(ns.funcs.items()):
-                    funcs.append(func)
-            for decl_idx, name, classinfo in classlist1:
-                for name, func in sorted(classinfo.methods.items()):
-                    cls = self.classes[func.classname]
-                    #if cls.isinterface or cls.isalgorithm or cls.name == "Algorithm":
-                    #    continue
-                    funcs.append(func)
-            for func in funcs:
-                func.gen_code(f, self.classes)
-            for cls_name, classinfo in self.classes.items():
-                if not cls_name in g_init_generated_classes:
-                    init_prototype = f"static VALUE wrap_cv_{cls_name}_init(int argc, VALUE *argv, VALUE self)"
-                    f.write(f"static VALUE wrap_cv_{cls_name}_init(int argc, VALUE *argv, VALUE self) {{\n")
-                    f.write(f"    return Qnil;\n")
-                    f.write(f"}}\n")
-        # gen MethodDef and ConstDef
-        with open(f"{out_dir}/rbopencv_modules_content.hpp", "w") as f:
-            for ns_name, ns in sorted(self.namespaces.items()):
-                ns = self.namespaces[ns_name]
-                wname = normalize_class_name(ns_name)
+                        print(f'    rb_define_method({c_klass}, "{funcname_rb}", RUBY_METHOD_FUNC({wrapper_func_name}), -1);', file=fcr)
+            print(f"}}", file=fcr)
 
-                f.write('static MethodDef methods_%s[] = {\n'%wname)
-                for name, func in sorted(ns.funcs.items()):
-                    num_supported_variants, support_statuses = func.is_target_function()
-                    if num_supported_variants == 0 and not (name == "bindTest_OldEnum"):
-                        continue
-                    wrapper_name = func.get_wrapper_name()
-                    if func.isconstructor:
-                        continue
-                    if func.is_static:
-                        continue
-                    #self.code_ns_reg.write(func.get_tab_entry()) # [orig-content]
-                    f.write(f'    {{"{name}", {wrapper_name}}},\n')
-                custom_entries_macro = 'RBOPENCV_EXTRA_METHODS_{}'.format(wname.upper())
-                f.write('#ifdef {}\n    {}\n#endif\n'.format(custom_entries_macro, custom_entries_macro))
-                f.write('    {NULL, NULL}\n};\n\n')
+            # Write rbopenv_wrapclass.hpp
+            fwc.write(f"static VALUE {c_klass};\n")
+            fwc.write(f"{wrap_struct} {{\n")
+            fwc.write(f"    Ptr<{qname}> v;\n")
+            fwc.write(f"}};\n")
+            fwc.write(f"static void wrap_{us_klass_name}_free({wrap_struct}* ptr){{\n")
+            fwc.write(f"    ptr->v.reset();\n")
+            fwc.write(f"    ruby_xfree(ptr);\n")
+            fwc.write(f"}};\n")
+            fwc.write(f"static const rb_data_type_t {us_klass_name}_type {{\n")
+            fwc.write(f"    \"{c_klass}\",\n")
+            fwc.write(f"    {{NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_{us_klass_name}_free), NULL}},\n")
+            fwc.write(f"    NULL, NULL,\n")
+            fwc.write(f"    RUBY_TYPED_FREE_IMMEDIATELY\n")
+            fwc.write(f"}};\n")
+            fwc.write(f"static Ptr<{qname}> get_{us_klass_name}(VALUE self){{\n")
+            fwc.write(f"    {wrap_struct}* ptr;\n")
+            fwc.write(f"    TypedData_Get_Struct(self, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+            fwc.write(f"    return ptr->v;\n")
+            fwc.write(f"}}\n")
+            fwc.write(f"static VALUE wrap_{us_klass_name}_alloc(VALUE klass){{\n")
+            fwc.write(f"    {wrap_struct}* ptr = nullptr;\n")
+            fwc.write(f"    VALUE ret = TypedData_Make_Struct(klass, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+            fwc.write(f"    return ret;\n")
+            fwc.write(f"}}\n")
+            fwc.write(f"template<>\n")
+            fwc.write(f"VALUE rbopencv_from(const Ptr<{qname}>& value){{\n")
+            fwc.write(f"    TRACE_PRINTF(\"[rbopencv_from Ptr<{qname}>]\\n\");\n")
+            fwc.write(f"    {wrap_struct} *ptr;\n")
+            fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({c_klass});\n")
+            fwc.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+            fwc.write(f"    ptr->v = value;\n")
+            fwc.write(f"    return a;\n")
+            fwc.write(f"}}\n")
+            if isabstract:
+                continue
+            if klass.name in g_instance_used_as_retval_types:
+                fwc.write(f"template<>\n")
+                fwc.write(f"bool rbopencv_to(VALUE o, {qname}& value){{\n")
+                fwc.write(f"    TRACE_PRINTF(\"[rbopencv_to {qname}]\\n\");\n")
+                fwc.write(f"    Ptr<{qname}> p = get_{us_klass_name}(o);\n")
+                fwc.write(f"    value = *p;\n")
+                fwc.write(f"    return true;\n")
+                fwc.write(f"}}\n")
+            has_ctor = False
+            num_supported_ctor_variants = 0
+            for func in klass.funcs:
+                if check_is_constructor(func):
+                    has_ctor = True
+                    stats = check_func_variants_support_status(func)
+                    for stat in stats:
+                        if stat[0]:
+                            num_supported_ctor_variants += 1
+            if has_ctor == False or num_supported_ctor_variants >= 1:
+                fwc.write(f"static VALUE wrap_{us_klass_name}_init(int argc, VALUE *argv, VALUE self); // implemented in rbopencv_funcs.hpp\n\n")
 
-                f.write('static ConstDef consts_%s[] = {\n'%wname)
-                for name, cname in sorted(ns.consts.items()):
-                    f.write('    {"%s", static_cast<long>(%s)},\n'%(name, cname))
-                    compat_name = re.sub(r"([a-z])([A-Z])", r"\1_\2", name).upper()
-                    if name != compat_name:
-                        f.write('    {"%s", static_cast<long>(%s)},\n'%(compat_name, cname))
-                custom_entries_macro = 'RBOPENCV_EXTRA_CONSTANTS_{}'.format(wname.upper())
-                f.write('#ifdef {}\n    {}\n#endif\n'.format(custom_entries_macro, custom_entries_macro))
-                f.write('    {NULL, 0}\n};\n\n')
-        with open(f"{out_dir}/classinfo.txt", "w") as f:
-            print("ClassInfo", file=f)
-            for cii, key in enumerate(self.classes):
-                print(f"  {cii} {key}", file=f)
-                self.classes[key].dump(2, f)
-        with open(f"{out_dir}/namespace.txt", "w") as f:
-            print("Namespace", file=f)
-            for nsi, key in enumerate(self.namespaces):
-                print(f"  {nsi} {key}", file=f)
-                self.namespaces[key].dump(2, f)
-        with open(f"{out_dir}/enums.txt", "w") as f:
-            print("Enum", file=f)
-            for wname, name in self.enums.items():
-                print(f"{wname} {name}", file=f)
+    with open(f"{g_out_dir}/rbopencv_enum_converter.hpp", "w") as f:
+        for _, cvenum in api.cvenums.items():
+            if cvenum.name.endswith(".<unnamed>"):
+                continue
+            qname = cvenum.name.replace(".", "::")
+            f.write(f"template<>\n")
+            f.write(f"bool rbopencv_to(VALUE obj, {qname}& value){{\n")
+            f.write(f"    TRACE_PRINTF(\"[rbopencv_to {qname}]\\n\");\n")
+            f.write(f"    if (!FIXNUM_P(obj))\n")
+            f.write(f"        return false;\n")
+            f.write(f"    int tmp = FIX2INT(obj);\n")
+            f.write(f"    value = static_cast<{qname}>(tmp);\n")
+            f.write(f"    return true;\n")
+            f.write(f"}}\n")
+            f.write(f"template<>\n")
+            f.write(f"VALUE rbopencv_from(const {qname}& value){{\n")
+            f.write(f"    TRACE_PRINTF(\"[rbopencv_from {qname}] %d\", value);\n")
+            f.write(f"    return INT2NUM(static_cast<int>(value));\n")
+            f.write(f"}}\n")
+
+    with (open(f"{g_out_dir}/rbopencv_funcs.hpp", "w") as f,
+          open("./autogen/log-support-status.csv", "w") as log_f):
+        print("Support_Status,Function_Name,Variant_Number,Retval_Type,Argument_Types,Reason", file=log_f)
+        for _, cvfunc in api.cvfuncs.items():
+            support_stats = check_func_variants_support_status(cvfunc)
+            num_supported_variants = 0
+            supported_vars:list[CvVariant] = []
+            for i in range(len(cvfunc.variants)):
+                var = cvfunc.variants[i]
+                stat = support_stats[i]
+                if stat[0]:
+                    num_supported_variants += 1
+                    supported_vars.append(cvfunc.variants[i])
+                    gen_stat = "Generate"
+                else:
+                    gen_stat = "Skip"
+                arg_tps = [arg.tp for arg in var.args]
+                str_arg_tps = ",".join(arg_tps)
+                print(f'{gen_stat},{cvfunc.name},{i},{var.rettype},"{str_arg_tps}"', file=log_f, end="")
+                print(f',"{stat[1]}"', file=log_f)
+            if num_supported_variants == 0:
+                continue
+            generate_wrapper_function_impl(f, cvfunc, log_f)
+        for klass in sorted_klasses:
+            has_ctor = False
+            for func in klass.funcs:
+                if check_is_constructor(func):
+                    has_ctor = True
+                    break
+            isabstract = check_is_abstract_class(klass)
+            if (not has_ctor) and (not isabstract):
+                # If ctor is not defined, ClassName_init() shall be generated to support default ctor
+                klass_basename = klass.name.split(".")[-1]
+                ctor_name = f"{klass.name}.{klass_basename}"
+                ctor_var = CvVariant(wrap_as=None, isconst=False, isvirtual=False, ispurevirtual=False, rettype="",
+                    rettype_qname="", args=[])
+                dummy_func = CvFunc(filename="(dummy)", ns=klass.ns, klass=klass, name_cpp=ctor_name, name=ctor_name,
+                    isstatic=False, variants=[ctor_var])
+                generate_wrapper_function_impl(f, dummy_func, log_f)
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:
@@ -1045,25 +730,20 @@ with open(headers_txt) as f:
         if line.startswith("#"):
             continue
         headers.append(line.split("#")[0].strip())
-dstdir = "./autogen"
-os.makedirs(dstdir, exist_ok=True)
-generator = RubyWrapperGenerator()
-generator.gen(headers, dstdir)
-g_logger.close()
 
-with open(f"{dstdir}/support-status.csv", "w") as f:
-    for func in g_log_processed_funcs:
-        header_fname = func.header.split("/")[-1] if func.header else ""
-        for vi, v in enumerate(func.variants):
-            arg_types = [a.tp for a in v.args]
-            args_str = ",".join(arg_types)
-            is_supported, reason = func.support_statuses[vi]
-            wrapas = v.wrapas if v.wrapas else ""
-            print(f'{is_supported},{func.cname},"{args_str}",{v.rettype},{reason},{header_fname},{wrapas}', file=f)
-with open(f"{dstdir}/unsupported-types.txt", "w") as f:
-    print("retval types", file=f)
-    for t, num in g_unsupported_retval_types.items():
-        print(f"  {t} {num}", file=f)
-    print("arg types", file=f)
-    for t, num in g_unsupported_arg_types.items():
-        print(f"  {t} {num}", file=f)
+api = hdr_parser_wrapper.parse_headers(headers, g_out_dir)
+os.makedirs(g_out_dir, exist_ok=True)
+with open(f"{g_out_dir}/rbopencv_include.hpp", "w") as f:
+    for hdr in headers:
+        print(f'#include "{hdr}"', file=f)
+for _, cvenum in api.cvenums.items():
+    g_supported_enum_types.append(cvenum.name)
+for _, cvklass in api.cvklasses.items():
+    g_supported_class_types.append(cvklass.name)
+tmp_instance_used_as_retval_types = set()
+for _, cvfunc in api.cvfuncs.items():
+    for var in cvfunc.variants:
+        if var.rettype_qname in api.cvklasses.keys():
+            tmp_instance_used_as_retval_types.add(var.rettype_qname)
+g_instance_used_as_retval_types = list(tmp_instance_used_as_retval_types)
+generate_code(api)
