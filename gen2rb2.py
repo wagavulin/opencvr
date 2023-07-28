@@ -244,18 +244,10 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
     num_supported_variants = 0
     supported_vars:list[CvVariant] = []
     for i in range(len(cvfunc.variants)):
-        var = cvfunc.variants[i]
         stat = support_stats[i]
         if stat[0]:
             num_supported_variants += 1
             supported_vars.append(cvfunc.variants[i])
-            gen_stat = "Generate"
-        else:
-            gen_stat = "Skip"
-        print(f"{gen_stat} |{stat[1]}| {cvfunc.name} {i} {var.rettype}", file=log_f, end="")
-        for arg in var.args:
-            print(f" {arg.tp}", file=log_f, end="")
-        print(file=log_f)
     if num_supported_variants == 0:
         return
     func_cpp_basename = cvfunc.name_cpp.split(".")[-1]
@@ -438,7 +430,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
         else:
             func_cpp_qname = cvfunc.name_cpp.replace(".", "::")
             rettype_cpp_qname = v.rettype_qname.replace(".", "::")
-            if v.rettype_qname in api.cvklasses.keys():
+            if v.rettype_qname in api.cvklasses.keys() and not v.rettype_qname == "cv.Mat":
                 is_ret_class_instance = True
                 if is_instance_method:
                     klassname_us = cvfunc.klass.name.replace(".", "_")
@@ -640,7 +632,7 @@ def generate_code(api:CvApi):
             if klass.name in g_instance_used_as_retval_types:
                 fwc.write(f"template<>\n")
                 fwc.write(f"bool rbopencv_to(VALUE o, {qname}& value){{\n")
-                fwc.write(f"    printf(\"[rbopencv_to {qname}]\\n\");\n")
+                fwc.write(f"    TRACE_PRINTF(\"[rbopencv_to {qname}]\\n\");\n")
                 fwc.write(f"    Ptr<{qname}> p = get_{us_klass_name}(o);\n")
                 fwc.write(f"    value = *p;\n")
                 fwc.write(f"    return true;\n")
@@ -678,43 +670,44 @@ def generate_code(api:CvApi):
             f.write(f"}}\n")
 
     with (open(f"{g_out_dir}/rbopencv_funcs.hpp", "w") as f,
-          open("./autogen/log.txt", "w") as log_f):
-            for _, cvfunc in api.cvfuncs.items():
-                support_stats = check_func_variants_support_status(cvfunc)
-                num_supported_variants = 0
-                supported_vars:list[CvVariant] = []
-                for i in range(len(cvfunc.variants)):
-                    var = cvfunc.variants[i]
-                    stat = support_stats[i]
-                    if stat[0]:
-                        num_supported_variants += 1
-                        supported_vars.append(cvfunc.variants[i])
-                        gen_stat = "Generate"
-                    else:
-                        gen_stat = "Skip"
-                    print(f"{gen_stat} |{stat[1]}| {cvfunc.name} {i} {var.rettype}", file=log_f, end="")
-                    for arg in var.args:
-                        print(f" {arg.tp}", file=log_f, end="")
-                    print(file=log_f)
-                if num_supported_variants == 0:
-                    continue
-                generate_wrapper_function_impl(f, cvfunc, log_f)
-            for klass in sorted_klasses:
-                has_ctor = False
-                for func in klass.funcs:
-                    if check_is_constructor(func):
-                        has_ctor = True
-                        break
-                isabstract = check_is_abstract_class(klass)
-                if (not has_ctor) and (not isabstract):
-                    # If ctor is not defined, ClassName_init() shall be generated to support default ctor
-                    klass_basename = klass.name.split(".")[-1]
-                    ctor_name = f"{klass.name}.{klass_basename}"
-                    ctor_var = CvVariant(wrap_as=None, isconst=False, isvirtual=False, ispurevirtual=False, rettype="",
-                        rettype_qname="", args=[])
-                    dummy_func = CvFunc(filename="(dummy)", ns=klass.ns, klass=klass, name_cpp=ctor_name, name=ctor_name,
-                        isstatic=False, variants=[ctor_var])
-                    generate_wrapper_function_impl(f, dummy_func, log_f)
+          open("./autogen/log-functions.csv", "w") as log_f):
+        print("Support_Status,Function_Name,Variant_Number,Retval_Type,Argument_Types,Reason", file=log_f)
+        for _, cvfunc in api.cvfuncs.items():
+            support_stats = check_func_variants_support_status(cvfunc)
+            num_supported_variants = 0
+            supported_vars:list[CvVariant] = []
+            for i in range(len(cvfunc.variants)):
+                var = cvfunc.variants[i]
+                stat = support_stats[i]
+                if stat[0]:
+                    num_supported_variants += 1
+                    supported_vars.append(cvfunc.variants[i])
+                    gen_stat = "Generate"
+                else:
+                    gen_stat = "Skip"
+                arg_tps = [arg.tp for arg in var.args]
+                str_arg_tps = ",".join(arg_tps)
+                print(f'{gen_stat},{cvfunc.name},{i},{var.rettype},"{str_arg_tps}"', file=log_f, end="")
+                print(f',"{stat[1]}"', file=log_f)
+            if num_supported_variants == 0:
+                continue
+            generate_wrapper_function_impl(f, cvfunc, log_f)
+        for klass in sorted_klasses:
+            has_ctor = False
+            for func in klass.funcs:
+                if check_is_constructor(func):
+                    has_ctor = True
+                    break
+            isabstract = check_is_abstract_class(klass)
+            if (not has_ctor) and (not isabstract):
+                # If ctor is not defined, ClassName_init() shall be generated to support default ctor
+                klass_basename = klass.name.split(".")[-1]
+                ctor_name = f"{klass.name}.{klass_basename}"
+                ctor_var = CvVariant(wrap_as=None, isconst=False, isvirtual=False, ispurevirtual=False, rettype="",
+                    rettype_qname="", args=[])
+                dummy_func = CvFunc(filename="(dummy)", ns=klass.ns, klass=klass, name_cpp=ctor_name, name=ctor_name,
+                    isstatic=False, variants=[ctor_var])
+                generate_wrapper_function_impl(f, dummy_func, log_f)
 
 headers_txt = "./headers.txt"
 if len(sys.argv) == 2:

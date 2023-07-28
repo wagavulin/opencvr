@@ -581,6 +581,7 @@ static VALUE rbopencv_from(const T& src) {
 
 template<>
 VALUE rbopencv_from(const cv::Mat& m){
+    TRACE_PRINTF("[rbopencv_from Mat]\n");
     if (!m.data) {
         TRACE_PRINTF("m.data is null\n");
         return Qnil;
