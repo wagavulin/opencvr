@@ -8,7 +8,7 @@ $LOAD_PATH.each{|lp|
   end
 }
 
-$CXXFLAGS += " -std=c++14 "
+$CXXFLAGS += " -std=c++14 -Wno-deprecated-declarations "
 opencv4_include_dir = `pkg-config --cflags-only-I opencv4`.chomp
 opencv4_ldflags = `pkg-config --libs-only-L opencv4`.chomp # -L/path/to/opencv4/lib
 $CPPFLAGS = opencv4_include_dir + " -I./dummycv"

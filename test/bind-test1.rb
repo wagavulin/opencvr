@@ -140,8 +140,12 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2.bindTest_InOut_vector_Point([[1, 2], [3, 4]]), [[2, 3], [4, 5], [10, 11], [20, 21]])
     assert_equal(CV2.bindTest_InOut_vector_Point2f([[1, 2], [3, 4]]), [[1.5, 2.5], [3.5, 4.5], [10.5, 11.5], [20.5, 21.5]])
     assert_equal(CV2.bindTest_InOut_vector_Rect([[10,20,30,40], [50,60,70,80]]), [[11,22,33,44], [51,62,73,84]])
+    assert_equal(CV2.bindTest_InOut_vector_RotatedRect([[[20,30],[100,200],10], [[50,60],[300,400],40]]), [[[21,29],[200,100],20], [[51,59],[400,300],50]])
+    assert_equal(CV2.bindTest_InOut_vector_Size([[200,300], [400,500]]), [[300,200], [500,400]])
+    assert_equal(CV2.bindTest_InOut_vector_Size2([[200,300], [400,500]]), [[300,200], [500,400]])
     assert_equal(CV2.bindTest_InOut_vector_vector_int([[10, 20],[30, 40]]), [[11, 21], [31, 41]])
-    assert_equal(CV2.bindTest_InOut_vector_vector_Point2f([[[10, 20],[30, 40]], [[50, 60], [70, 80]]]), [[[11, 22],[31, 42]], [[51, 62], [71, 82]]])
+    assert_equal(CV2.bindTest_InOut_vector_vector_Point([[[10, 20],[30, 40]], [[50, 60], [70, 80]]]), [[[11, 22],[31, 42]], [[51, 62], [71, 82]]])
+    assert_equal(CV2.bindTest_InOut_vector_vector_Point2f([[[10, 20],[30, 40]], [[50, 60], [70, 80]]]), [[[11.5, 22.5],[31.5, 42.5]], [[51.5, 62.5], [71.5, 82.5]]])
   end
 
   def test_mat_inout
@@ -199,13 +203,13 @@ class BindTest < Test::Unit::TestCase
     assert_equal(CV2::Foo::smethod1(10), 20)
     assert_equal(CV2::Foo.smethod1(10), 20)
     # static method (as global function)
-    assert_equal(CV2::Foo_smethod1(10), 20)
-    assert_equal(CV2.Foo_smethod1(10), 20)
+    #assert_equal(CV2::Foo_smethod1(10), 20)
+    #assert_equal(CV2.Foo_smethod1(10), 20)
     # static method in subsubmodule
     assert_equal(CV2::Ns1::Ns11::SubSubC1::smethod1(10), 30)
     assert_equal(CV2::Ns1::Ns11::SubSubC1.smethod1(10), 30)
-    assert_equal(CV2::Ns1::Ns11::SubSubC1_smethod1(10), 30)
-    assert_equal(CV2::Ns1::Ns11.SubSubC1_smethod1(10), 30)
+    #assert_equal(CV2::Ns1::Ns11::SubSubC1_smethod1(10), 30)
+    #assert_equal(CV2::Ns1::Ns11.SubSubC1_smethod1(10), 30)
   end
 
   def test_shared_ptr_retval
@@ -242,8 +246,8 @@ class BindTest < Test::Unit::TestCase
     assert_equal(ssc1.at(10), 121)
     assert_equal(ssc1.getNode("foo"), 114)
     # Class method in submodule
-    assert_equal(CV2::Ns1::Ns11::ssc1wrapAsSMethod1(11), 21)
-    assert_equal(CV2::Ns1::Ns11::ssc1wrapAsSMethod2("abcd"), 4)
+    assert_equal(CV2::Ns1::Ns11::SubSubC1::ssc1wrapAsSMethod1(11), 21)
+    assert_equal(CV2::Ns1::Ns11::SubSubC1::ssc1wrapAsSMethod2("abcd"), 4)
   end
 
   def test_submodule

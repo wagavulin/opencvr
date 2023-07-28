@@ -61,8 +61,9 @@ lines[1..-1].each{|line|
 headers = ["./dummycv/dummycv.hpp"] # Classes/methods for test
 tmp_headers.each{|header|
   next if !header.include?("opencv2") # remove non-opencv headers
+  next if header.include?("/cuda.")
   header = File.expand_path(header) # convert paths with "." and ".."
-  next if is_unsupported_header(header)
+  #next if is_unsupported_header(header)
   headers << header
 }
 headers.uniq! # remove duplicated headers

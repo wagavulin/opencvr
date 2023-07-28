@@ -28,6 +28,7 @@ static int trace_printf(const char *filename, int line, const char *fmt, ...){
 #define TRACE_PRINTF(fmt, ...) trace_printf(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
 using namespace cv;
+using namespace std;
 
 //TODO Below variable is originally defined as TLSData<...> and TLSData is defined in opencv2/core/utils/tls.hpp
 thread_local std::vector<std::string> conversionErrorsTLS;
@@ -580,6 +581,7 @@ static VALUE rbopencv_from(const T& src) {
 
 template<>
 VALUE rbopencv_from(const cv::Mat& m){
+    TRACE_PRINTF("[rbopencv_from Mat]\n");
     if (!m.data) {
         TRACE_PRINTF("m.data is null\n");
         return Qnil;
@@ -752,8 +754,57 @@ static VALUE mCV2;
 #include "autogen/rbopencv_funcs.hpp"
 #include "autogen/rbopencv_modules_content.hpp"
 
+static std::vector<std::string> split_string(const std::string& str, char delim){
+    std::vector<std::string> substrs;
+    std::stringstream sstream{str};
+    std::string substr;
+    while (getline(sstream, substr, delim))
+        if (!substr.empty())
+            substrs.push_back(substr);
+    return substrs;
+}
+
+std::string to_submod_name(const std::string subname){
+    if (subname == "cv")
+        return std::string{"CV2"};
+    std::string submod_name{subname};
+    submod_name[0] = toupper(submod_name[0]);
+    return submod_name;
+}
+
+static void init_submodule(const std::string& name, MethodDef method_defs[], ConstDef const_defs[]){
+    //printf("[%s] %s\n", __func__, name.c_str());
+    auto subnames = split_string(name, '.');
+    VALUE parent_mod = mCV2;
+    for (const auto& subname : subnames) {
+        const std::string submod_name = to_submod_name(subname);
+        int sym = rb_intern(submod_name.c_str());
+        int is_defined = rb_const_defined(parent_mod, sym);
+        //printf("  %s %d %d\n", submod_name.c_str(), sym, is_defined);
+        if (is_defined) {
+            parent_mod = rb_const_get(parent_mod, sym);
+        } else {
+            parent_mod = rb_define_module_under(parent_mod, submod_name.c_str());
+        }
+    }
+
+    MethodDef *method_def = method_defs;
+    while (method_def->name) {
+        rb_define_module_function(parent_mod, method_def->name, method_def->wrapper_func, -1);
+        method_def++;
+    }
+    ConstDef *const_def = const_defs;
+    while (const_def->name) {
+        // Need to check whether the 1st character is upper case.
+        // cv::datasets defines both uppercase and lowercase constants (e.g. "CIRCLE" and "circle")
+        if (const_def->name[0] != '_' && isupper(const_def->name[0]))
+            rb_define_const(parent_mod, const_def->name, INT2FIX(const_def->val));
+        const_def++;
+    }
+}
+
 // 1st arg (top_module) must be mCV2
-static void init_submodule(VALUE top_module, const char* name, MethodDef method_defs[], ConstDef const_defs[]){
+static void init_submodule_bak(VALUE top_module, const char* name, MethodDef method_defs[], ConstDef const_defs[]){
     // traverse and create nested submodules
     std::string s = name;
     size_t i = s.find('.');
@@ -778,8 +829,10 @@ static void init_submodule(VALUE top_module, const char* name, MethodDef method_
             VALUE submod;
             if (is_defined)
                 submod = rb_const_get(parent_mod, name_sym);
-            else
+            else {
+                //printf("[%s] define %s\n", __func__, module_short_name.c_str());
                 submod = rb_define_module_under(parent_mod, module_short_name.c_str());
+            }
             parent_mod = submod;
         }
     }
@@ -799,21 +852,14 @@ static void init_submodule(VALUE top_module, const char* name, MethodDef method_
     }
 }
 
-static std::vector<std::string> split_string(const std::string& str, char delim){
-    std::vector<std::string> substrs;
-    std::stringstream sstream{str};
-    std::string substr;
-    while (getline(sstream, substr, delim))
-        if (!substr.empty())
-            substrs.push_back(substr);
-    return substrs;
-}
-
 static VALUE get_parent_module_by_wname(VALUE top_module, const std::string wname){
     // wname: Ns1_Ns11_SubSubC1
     // printf("[%s] %s\n", __func__, wname.c_str());
     auto modnames = split_string(wname, '_'); // ["Ns1", "Ns11", "SubSubC1"]
-    modnames.pop_back(); // remove the last element (class name) => ["Ns1", "Ns11"]
+    // for (const auto& s : modnames) {
+    //     printf("  %s", s.c_str());
+    // }
+    // printf("\n");
     // Special handling. In wname, module names are split by "_", but some classes
     // have "_".
     if (wname == "Ml_Ann_MLP") {
@@ -824,18 +870,20 @@ static VALUE get_parent_module_by_wname(VALUE top_module, const std::string wnam
     VALUE parent_mod = top_module;
     VALUE submod;
     for (const auto &modname : modnames) {
+        //printf("[%s] modname: %s\n", __func__, modname.c_str());
         int name_sym = rb_intern(modname.c_str());
         int is_defined = rb_const_defined(parent_mod, name_sym);
         VALUE submod;
         if (is_defined)
             submod = rb_const_get(parent_mod, name_sym);
         else {
-            fprintf(stderr, "[ruby cv2.cpp %s] Error: parent_mod is not defined\n", __func__);
+            fprintf(stderr, "[ruby cv2.cpp %s] Error: parent_mod is not defined: %s\n", __func__, wname.c_str());
             parent_mod = Qnil;
             break;
         }
         parent_mod = submod;
     }
+    //printf("  returns %ld for %s\n", parent_mod, wname.c_str());
     return parent_mod;
 }
 
