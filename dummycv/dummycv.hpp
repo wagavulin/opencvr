@@ -157,11 +157,31 @@ CV_EXPORTS_W void bindTest_InOut_vector_Point2f(CV_IN_OUT std::vector<Point2f>& 
 CV_EXPORTS_W void bindTest_InOut_vector_Rect(CV_IN_OUT std::vector<Rect>& rects) {
     for (auto& rect : rects) { rect.x += 1; rect.y += 2; rect.width += 3; rect.height += 4; }
 }
+CV_EXPORTS_W void bindTest_InOut_vector_RotatedRect(CV_IN_OUT std::vector<RotatedRect>& rrects) {
+    for (auto& rrect : rrects) {
+        rrect.angle += 10;
+        rrect.center.x += 1; rrect.center.y -= 1;
+        rrect.size.width += 100; rrect.size.height -= 100;
+    }
+}
+CV_EXPORTS_W void bindTest_InOut_vector_Size(CV_IN_OUT std::vector<Size>& sizes) {
+    for (auto& size : sizes) { size.width += 100; size.height -= 100; }
+}
+CV_EXPORTS_W std::vector<Size> bindTest_InOut_vector_Size2(std::vector<Size>& sizes) {
+    std::vector<Size> ret_sizes;
+    for (const auto& size : sizes) {
+        ret_sizes.push_back(Size{size.width + 100, size.height - 100});
+    }
+    return ret_sizes;
+}
 CV_EXPORTS_W void bindTest_InOut_vector_vector_int(CV_IN_OUT std::vector<std::vector<int>>& xss) {
     for (auto& xs : xss) { for (auto& x : xs) { x += 1; } }
 }
-CV_EXPORTS_W void bindTest_InOut_vector_vector_Point2f(CV_IN_OUT std::vector<std::vector<Point2f>>& pss) {
+CV_EXPORTS_W void bindTest_InOut_vector_vector_Point(CV_IN_OUT std::vector<std::vector<Point>>& pss) {
     for (auto& ps : pss) { for (auto& p : ps) { p.x += 1; p.y += 2; } }
+}
+CV_EXPORTS_W void bindTest_InOut_vector_vector_Point2f(CV_IN_OUT std::vector<std::vector<Point2f>>& pss) {
+    for (auto& ps : pss) { for (auto& p : ps) { p.x += 1.5; p.y += 2.5; } }
 }
 CV_EXPORTS CV_WRAP_AS(wrapAsFunc1) int bindTest_WrapAsFunc(int a) { return a + 10; }
 CV_EXPORTS CV_WRAP_AS(wrapAsFunc2) int bindTest_WrapAsFunc(std::string s) { return static_cast<int>(s.length()); }

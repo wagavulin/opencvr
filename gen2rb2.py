@@ -29,6 +29,14 @@ g_supported_rettypes = [
     "cv.RotatedRect",
     "cv.Scalar",
     "cv.Size",
+    "std.vector<uchar>",
+    "std.vector<int>",
+    "std.vector<float>",
+    "std.vector<std.string>",
+    "std.vector<cv.String>",
+    "std.vector<cv.Mat>",
+    "std.vector<cv.Point2f>",
+    "std.vector<cv.Size>",
 ]
 g_supported_argtypes = [
     "bool",
@@ -67,8 +75,11 @@ g_supported_argtypes = [
     "std.vector<cv.Point>",
     "std.vector<cv.Point2f>",
     "std.vector<cv.Rect>",
+    "std.vector<cv.RotatedRect>",
+    "std.vector<cv.Size>",
     #"std.vector<cv.>",
     "std.vector<std.vector<int>>",
+    "std.vector<std.vector<cv.Point>>",
     "std.vector<std.vector<cv.Point2f>>",
     #"std.vector<std.vector<>>",
 ]
