@@ -681,7 +681,7 @@ def generate_code(api:CvApi):
             f.write(f"}}\n")
 
     with (open(f"{g_out_dir}/rbopencv_funcs.hpp", "w") as f,
-          open("./autogen/log-functions.csv", "w") as log_f):
+          open("./autogen/log-support-status.csv", "w") as log_f):
         print("Support_Status,Function_Name,Variant_Number,Retval_Type,Argument_Types,Reason", file=log_f)
         for _, cvfunc in api.cvfuncs.items():
             support_stats = check_func_variants_support_status(cvfunc)
@@ -731,7 +731,7 @@ with open(headers_txt) as f:
             continue
         headers.append(line.split("#")[0].strip())
 
-api = hdr_parser_wrapper.parse_headers(headers)
+api = hdr_parser_wrapper.parse_headers(headers, g_out_dir)
 os.makedirs(g_out_dir, exist_ok=True)
 with open(f"{g_out_dir}/rbopencv_include.hpp", "w") as f:
     for hdr in headers:

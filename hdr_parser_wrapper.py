@@ -2,6 +2,7 @@
 
 import enum
 import dataclasses
+import os
 import re
 import hdr_parser
 
@@ -442,27 +443,28 @@ def check_qname(tp:str, cvfunc:CvFunc, supported_primitive_types:list[str], supp
             return template % qname
     return None
 
-def _dump_api(cvapi:CvApi):
-    with open("tmp-cvnamespaces.txt", "w") as f:
+def _dump_api(cvapi:CvApi,log_dir:str):
+    os.makedirs(log_dir, exist_ok=True)
+    with open(f"{log_dir}/log-cvnamespaces.txt", "w") as f:
         for _, cvns in cvapi.cvnamespaces.items():
             print(f"{cvns.name}", file=f)
-    with open("tmp-cvklasses.txt", "w") as f:
+    with open(f"{log_dir}/log-cvklasses.txt", "w") as f:
         for _, cvklass in cvapi.cvklasses.items():
             print(f"{cvklass.name}", file=f)
-    with open("tmp-cvenums.txt", "w") as f:
+    with open(f"{log_dir}/log-cvenums.txt", "w") as f:
         for _, cvenum in cvapi.cvenums.items():
             print(f"{cvenum.name}", file=f)
-    with open("tmp-typedefs.txt", "w") as f:
+    with open(f"{log_dir}/log-cvtypedefs.txt", "w") as f:
         for _, cvtypedef in cvapi.cvtypedefs.items():
             print(f"{cvtypedef.name}", file=f)
-    with open("tmp-funcs.txt", "w") as f:
+    with open(f"{log_dir}/log-cvfuncs.txt", "w") as f:
         for _, cvfunc in cvapi.cvfuncs.items():
             for var_i, var in enumerate(cvfunc.variants, 1):
                 print(f"{cvfunc.name} {var_i} {var.rettype_qname}", file=f)
                 for arg in var.args:
                     print(f"  {arg.tp} {arg.tp_qname}", file=f)
 
-def parse_headers(headers:list[str]) -> CvApi:
+def parse_headers(headers:list[str], log_dir:str|None=None) -> CvApi:
     cvapi = _parse_headers(headers)
     supported_primitive_types = gen_supported_primitive_types()
     supported_typenames = gen_supported_typenames(cvapi)
@@ -481,23 +483,21 @@ def parse_headers(headers:list[str]) -> CvApi:
                     exit(1)
                 arg.tp_qname = tp_qname
 
-    _dump_api(cvapi)
+    if log_dir:
+        log_dir = log_dir.replace("\\", "/").rstrip("/")
+        _dump_api(cvapi, log_dir)
     return cvapi
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) == 1:
-        headers_txt = "./headers.txt"
-    elif len(sys.argv) == 2:
-        headers_txt = sys.argv[1]
-    else:
-        print(f"usage: hdr_parser_wraper.py <headers.txt>", file=sys.stderr)
+    if not len(sys.argv) == 3:
+        print(f"usage: hdr_parser_wraper.py <headers.txt> <log_dir>", file=sys.stderr)
         exit(1)
     headers = []
-    with open(headers_txt, "r") as f:
+    with open(sys.argv[1], "r") as f:
         for line in f:
             line = line.strip()
             if line.startswith("#"):
                 continue
             headers.append(line.split("#")[0].strip())
-    cvapi = parse_headers(headers)
+    cvapi = parse_headers(headers, sys.argv[2])
