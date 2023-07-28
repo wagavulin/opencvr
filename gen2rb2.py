@@ -73,6 +73,10 @@ g_supported_argtypes = [
     #"std.vector<std.vector<>>",
 ]
 
+g_unsupported_argtypes = [
+    "cv.flann.SearchParams",
+]
+
 g_supported_enum_types = []
 g_supported_class_types = []
 
@@ -81,14 +85,20 @@ def check_rettype_supported(rettype_qname:str):
         return True
     if rettype_qname in g_supported_enum_types:
         return True
+    if rettype_qname in g_supported_class_types:
+        return True
     if rettype_qname.startswith("Ptr<"):
         return True
     return False
 
 def check_argtype_supported(argtype_qname:str):
+    if argtype_qname in g_unsupported_argtypes:
+        return False
     if argtype_qname in g_supported_argtypes:
         return True
     if argtype_qname in g_supported_enum_types:
+        return True
+    if argtype_qname in g_supported_class_types:
         return True
     return False
 
@@ -111,6 +121,8 @@ def check_func_variants_support_status(func:CvFunc) -> list[tuple[bool,str]]:
         stat = (supported, msg)
         ret.append(stat)
     return ret
+
+g_instance_used_as_retval_types = []
 
 def check_is_constructor(cvfunc:CvFunc) -> bool:
     is_constructor = cvfunc.klass and cvfunc.klass.name.split(".")[-1] == cvfunc.name.split(".")[-1]
@@ -413,6 +425,7 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
 
         # Call C++ API if arguments are ready
         f.write("        if (conv_args_ok) {\n")
+        is_ret_class_instance = False
         if is_constructor:
             klassname_us = cvfunc.klass.name.replace(".", "_")
             wrap_struct = f"Wrap_{klassname_us}"
@@ -423,23 +436,35 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
             args_str = ", ".join(cac_args)
             f.write(f"            ptr->v = new {ctor_cname}({args_str});\n")
         else:
-            if not v.rettype == "void":
-                rettype_cpp_qname = v.rettype_qname.replace(".", "::")
-                f.write(f"            {rettype_cpp_qname} raw_retval;\n")
-                f.write(f"            raw_retval = ")
+            func_cpp_qname = cvfunc.name_cpp.replace(".", "::")
+            rettype_cpp_qname = v.rettype_qname.replace(".", "::")
+            if v.rettype_qname in api.cvklasses.keys():
+                is_ret_class_instance = True
+                if is_instance_method:
+                    klassname_us = cvfunc.klass.name.replace(".", "_")
+                    f.write(f"            cv::Ptr<{rettype_cpp_qname}> p = new {rettype_cpp_qname}{{get_{klassname_us}(klass)->{func_cpp_basename}")
+                    pass
+                else:
+                    f.write(f"            cv::Ptr<{rettype_cpp_qname}> p = new {rettype_cpp_qname}{{{func_cpp_qname}")
+                f.write(f"({', '.join(cac_args)})}};\n")
+                f.write(f"            VALUE value_retval = rbopencv_from(p);\n")
             else:
-                f.write(f"            ")
-            name_cpp_dcol = cvfunc.name_cpp.replace(".", "::")
-            if is_instance_method:
-                klassname_us = cvfunc.klass.name.replace(".", "_")
-                f.write(f"get_{klassname_us}(klass)->{func_cpp_basename}")
-            else:              # call global function
-                f.write(f"{name_cpp_dcol}")
-            f.write(f"({', '.join(cac_args)});\n")
-
+                if v.rettype == "void":
+                    f.write(f"            ")
+                else:
+                    f.write(f"            {rettype_cpp_qname} raw_retval;\n")
+                    f.write(f"            raw_retval = ")
+                if is_instance_method:
+                    klassname_us = cvfunc.klass.name.replace(".", "_")
+                    f.write(f"get_{klassname_us}(klass)->{func_cpp_basename}")
+                else:              # call global function
+                    f.write(f"{func_cpp_qname}")
+                f.write(f"({', '.join(cac_args)});\n")
         # Convert the return value(s)
         num_ruby_retvals = len(rh_raw_var_names)
-        if num_ruby_retvals == 0:
+        if is_ret_class_instance:
+            f.write(f"            return value_retval;\n")
+        elif num_ruby_retvals == 0:
             # If no retvals for ruby, return Qnil
             f.write(f"            return Qnil;\n")
         elif num_ruby_retvals == 1:
@@ -610,19 +635,16 @@ def generate_code(api:CvApi):
             fwc.write(f"    ptr->v = value;\n")
             fwc.write(f"    return a;\n")
             fwc.write(f"}}\n")
-
             if isabstract:
                 continue
-            # fwc.write(f"template<>\n")
-            # fwc.write(f"VALUE rbopencv_from({qname}& value){{\n")
-            # fwc.write(f"    TRACE_PRINTF(\"[rbopencv_from {qname}]\\n\");\n")
-            # fwc.write(f"    {wrap_struct} *ptr;\n")
-            # fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({c_klass});\n")
-            # fwc.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
-            # #fwc.write(f"    ptr->v = new {qname}(value);\n")
-            # fwc.write(f"    ptr->v = cv::makePtr<{qname}>(value);\n")
-            # fwc.write(f"    return a;\n")
-            # fwc.write(f"}}\n")
+            if klass.name in g_instance_used_as_retval_types:
+                fwc.write(f"template<>\n")
+                fwc.write(f"bool rbopencv_to(VALUE o, {qname}& value){{\n")
+                fwc.write(f"    printf(\"[rbopencv_to {qname}]\\n\");\n")
+                fwc.write(f"    Ptr<{qname}> p = get_{us_klass_name}(o);\n")
+                fwc.write(f"    value = *p;\n")
+                fwc.write(f"    return true;\n")
+                fwc.write(f"}}\n")
             has_ctor = False
             num_supported_ctor_variants = 0
             for func in klass.funcs:
@@ -712,4 +734,12 @@ with open(f"{g_out_dir}/rbopencv_include.hpp", "w") as f:
         print(f'#include "{hdr}"', file=f)
 for _, cvenum in api.cvenums.items():
     g_supported_enum_types.append(cvenum.name)
+for _, cvklass in api.cvklasses.items():
+    g_supported_class_types.append(cvklass.name)
+tmp_instance_used_as_retval_types = set()
+for _, cvfunc in api.cvfuncs.items():
+    for var in cvfunc.variants:
+        if var.rettype_qname in api.cvklasses.keys():
+            tmp_instance_used_as_retval_types.add(var.rettype_qname)
+g_instance_used_as_retval_types = list(tmp_instance_used_as_retval_types)
 generate_code(api)

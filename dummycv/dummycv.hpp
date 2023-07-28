@@ -68,9 +68,9 @@ public:
     CV_WRAP C1() {}
     CV_WRAP C1(int value1) : m_value1(value1) {}
     CV_WRAP int method1(int a) { return m_value1 + a; }
-private:
     int m_value1{1};
 };
+CV_EXPORTS_W C1 bindTestClassInstance1(C1 c){ c.m_value1 = 1000; return c; }
 } // classtest1
 
 // global functions for test arguments and retval
