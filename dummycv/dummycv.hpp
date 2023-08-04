@@ -73,6 +73,25 @@ public:
 CV_EXPORTS_W C1 bindTestClassInstance1(C1 c){ c.m_value1 = 1000; return c; }
 } // classtest1
 
+namespace classtest2 {
+
+class CV_EXPORTS_W C1 {
+public:
+    CV_WRAP C1(float value1) : m_value1(value1) {}
+    CV_WRAP float getValue1() { return m_value1; }
+private:
+    float m_value1;
+};
+
+struct CV_EXPORTS_W S1 {
+    S1() : a00(10), s00("aa"), f00(2.0), c1(1.5) {}
+    CV_PROP_RW int a00;
+    CV_PROP_RW std::string s00;
+    CV_PROP float f00;
+    CV_PROP_RW C1 c1;
+};
+}
+
 // global functions for test arguments and retval
 CV_EXPORTS_W int bindTest1(int a) { return a+a; } // Simple function
 // CV_EXPORTS_W double bindTest1(int a, CV_IN_OUT Point& b, CV_OUT int* c, int d=10, RNG* rng=0, double e=1.2);

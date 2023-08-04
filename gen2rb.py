@@ -5,7 +5,7 @@ import sys
 import typing
 
 import hdr_parser_wrapper
-from hdr_parser_wrapper import (CvApi, CvArg, CvEnum, CvEnumerator, CvFunc,
+from hdr_parser_wrapper import (CvApi, CvArg, CvEnum, CvEnumerator, CvProp, CvFunc,
                                 CvKlass, CvNamespace, CvVariant)
 
 g_out_dir = "./autogen"
@@ -249,6 +249,34 @@ _g_abstract_classes = [
 
 def check_is_abstract_class(cvklass:CvKlass):
     return cvklass.name in _g_abstract_classes
+
+def generate_accessor_wrapper_impl(f:typing.TextIO, klass:CvKlass, prop:CvProp, log_f):
+    us_klass_name = klass.name.replace(".", "_")     # underscored class name: cv_Ns1_Ns11_Foo
+    c_klass = f'c{us_klass_name}'                    # ccv_Ns1_Ns11_Foo (for VALUE name)
+    getter_wrapper_func_name = f"wrap_{us_klass_name}_{prop.name}_getter"
+    setter_wrapper_func_name = f"wrap_{us_klass_name}_{prop.name}_setter"
+    tp_cpp_qname = prop.tp_qname.replace(".", "::")
+    f.write(f'static VALUE {getter_wrapper_func_name}(VALUE self){{\n')
+    #f.write(f'    printf("[%s]\\n", __func__);\n')
+    f.write(f'    const {tp_cpp_qname}& raw_retval = get_{us_klass_name}(self)->{prop.name};\n')
+    f.write(f'    VALUE value_retval = rbopencv_from(raw_retval);\n')
+    f.write(f'    return value_retval;\n')
+    f.write(f'}}\n')
+    f.write(f'\n')
+    f.write(f'static VALUE {setter_wrapper_func_name}(VALUE self, VALUE value_{prop.name}){{\n')
+    #f.write(f'    printf("[%s]\\n", __func__);\n')
+    f.write(f'    {tp_cpp_qname} raw_{prop.name};\n')
+    f.write(f'    bool conv_arg_ok = rbopencv_to(value_{prop.name}, raw_{prop.name});\n')
+    f.write(f'    if (!conv_arg_ok) {{\n')
+    f.write(f"        std::string err_msg{{\" can't parse '{prop.name}'\"}};\n")
+    f.write(f'        rbPopulateArgumentConversionErrors(err_msg);\n')
+    f.write(f'        rbRaiseCVOverloadException("{klass.name}.{prop.name}");\n')
+    f.write(f'        return Qnil;\n')
+    f.write(f'    }}\n')
+    f.write(f'    get_{us_klass_name}(self)->{prop.name} = raw_{prop.name};\n')
+    f.write(f'    return Qnil;\n')
+    f.write(f'}}\n')
+    f.write(f'\n')
 
 def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
     support_stats = check_func_variants_support_status(cvfunc)
@@ -586,6 +614,11 @@ def generate_code(api:CvApi):
                                 num_supported_ctor_variants += 1
                 if has_ctor == False or num_supported_ctor_variants >= 1:
                     print(f'    rb_define_private_method({c_klass}, "initialize", RUBY_METHOD_FUNC(wrap_{klass.name.replace(".", "_")}_init), -1);', file=fcr)
+            for prop in klass.props:
+                getter_wrapper_func_name = f"wrap_{us_klass_name}_{prop.name}_getter"
+                setter_wrapper_func_name = f"wrap_{us_klass_name}_{prop.name}_setter"
+                print(f'    rb_define_method({c_klass}, "{prop.name}", RUBY_METHOD_FUNC({getter_wrapper_func_name}), 0);', file=fcr)
+                print(f'    rb_define_method({c_klass}, "{prop.name}=", RUBY_METHOD_FUNC({setter_wrapper_func_name}), 1);', file=fcr)
             for func in klass.funcs:
                 funcnames_rb = set()
                 support_stats = check_func_variants_support_status(func)
@@ -703,6 +736,9 @@ def generate_code(api:CvApi):
             if num_supported_variants == 0:
                 continue
             generate_wrapper_function_impl(f, cvfunc, log_f)
+        for klass in sorted_klasses:
+            for prop in klass.props:
+                generate_accessor_wrapper_impl(f, klass, prop, log_f)
         for klass in sorted_klasses:
             has_ctor = False
             for func in klass.funcs:

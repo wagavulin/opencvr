@@ -50,6 +50,13 @@ class CvEnum:
     values:list[CvEnumerator]
 
 @dataclasses.dataclass
+class CvProp:
+    tp:str
+    tp_qname:str|None
+    name:str
+    rw:bool
+
+@dataclasses.dataclass
 class CvKlass:
     filename:str            # header filename (for debug)
     ns:"CvNamespace|None"   # namespace if it's defined directly under namespace, else None
@@ -57,6 +64,7 @@ class CvKlass:
     name:str
     klasses:list["CvKlass"] # classes/structs defined in this class
     enums:list[CvEnum]
+    props:list[CvProp]
     funcs:list[CvFunc]
     str_parent_klass:str|None
     parent_klass:"CvKlass|None"
@@ -128,7 +136,22 @@ def _parse_headers(headers:list[str]) -> CvApi:
             d00 = decl0.split()[0]
             if d00 in ["class", "struct"]:
                 clsname = decl0.split()[1]
-                cvklass = CvKlass(filename=hdr, ns=None, klass=None, name=clsname, klasses=[], enums=[], funcs=[],
+                cvprops:list[CvProp] = []
+                for prop_strs in decl[3]:
+                    prop_tp = prop_strs[0]
+                    prop_name = prop_strs[1]
+                    if not prop_strs[2] == "":
+                        print(f"[Error] prop_strs[2] is not empty")
+                        exit(0)
+                    prop_rw = False
+                    for prop_prop_str in prop_strs[3]:
+                        if prop_prop_str == "/RW":
+                            prop_rw = True
+                        else:
+                            print(f"[Error] unsupported prop_prop: {prop_prop_str} in {clsname} {hdr}")
+                            exit(0)
+                    cvprops.append(CvProp(tp=prop_tp, tp_qname=None, name=prop_name, rw=prop_rw))
+                cvklass = CvKlass(filename=hdr, ns=None, klass=None, name=clsname, klasses=[], enums=[], props=cvprops, funcs=[],
                     str_parent_klass=None, parent_klass=None, child_klasses=[])
                 cvklasses[clsname] = cvklass
                 cvklass.str_parent_klass = _parse_parent_klass_str(decl[1], clsname)
@@ -256,7 +279,7 @@ def _parse_headers(headers:list[str]) -> CvApi:
                 print(f"[Error] {ns_or_klass} of {cvenum} is probably a class, but does not start with [A-Z_]")
                 exit(1)
             ns = cvnamespaces[nsname]
-            klass = CvKlass(filename=cvenum.filename, ns=ns, klass=None, name=ns_or_klass, klasses=[], enums=[], funcs=[],
+            klass = CvKlass(filename=cvenum.filename, ns=ns, klass=None, name=ns_or_klass, klasses=[], enums=[], props=[], funcs=[],
                 str_parent_klass=None, parent_klass=None, child_klasses=[], no_bind=True)
             cvklasses[ns_or_klass] = klass
             klass.enums.append(cvenum)
@@ -319,10 +342,10 @@ def _parse_headers(headers:list[str]) -> CvApi:
     # They are necessary because they are used with typedef
     if "cv.flann" in cvnamespaces.keys():
         klass_IndexParams = CvKlass(filename="(root)/opencv2/flann/miniflann.hpp", ns=cvnamespaces["cv.flann"], klass=None, name="cv.flann.IndexParams",
-            klasses=[], enums=[], funcs=[], str_parent_klass=None, parent_klass=None, child_klasses=[], no_bind=True)
+            klasses=[], enums=[], props=[], funcs=[], str_parent_klass=None, parent_klass=None, child_klasses=[], no_bind=True)
         cvklasses["cv.flann.IndexParams"] = klass_IndexParams
         klass_SearchParams = CvKlass(filename="(root)/opencv2/flann/miniflann.hpp", ns=cvnamespaces["cv.flann"], klass=None, name="cv.flann.SearchParams",
-            klasses=[], enums=[], funcs=[], str_parent_klass=klass_IndexParams.name, parent_klass=klass_IndexParams, child_klasses=[], no_bind=True)
+            klasses=[], enums=[], props=[], funcs=[], str_parent_klass=klass_IndexParams.name, parent_klass=klass_IndexParams, child_klasses=[], no_bind=True)
         cvklasses["cv.flann.SearchParams"] = klass_SearchParams
         klass_IndexParams.child_klasses.append(klass_SearchParams)
 
@@ -376,7 +399,11 @@ def gen_supported_typenames(api:CvApi) -> list[str]:
         supported_typenames.append(t)
     return supported_typenames
 
-def check_qname(tp:str, cvfunc:CvFunc, supported_primitive_types:list[str], supported_typenames:list[str]) -> str|None:
+# current_qualifier:
+#   if tp is arg/retval of class/instance method => class qname (cv.Ns1.C1)
+#   if tp is arg/retval of global function       => ns qname (cv.Ns1)
+#   if tp is public member of class              => class qname
+def check_qname(tp:str, current_qualifier:str, supported_primitive_types:list[str], supported_typenames:list[str]) -> str|None:
     if tp == "":  # for constructor rettype
         return ""
     template = "%s"
@@ -424,17 +451,8 @@ def check_qname(tp:str, cvfunc:CvFunc, supported_primitive_types:list[str], supp
         elif "cv." + main_type in supported_typenames:
             return template % ("cv." + main_type)
 
-    # funcname_qualifier
-    #   if func is a global function (cv.NsName1.func1) => "cv.NsName1"
-    #   if func is a member function (cv.NsName1.Class1.func1) => "cv.NsName1.Class1"
-    if cvfunc.ns:
-        funcname_qualifier = cvfunc.ns.name
-    elif cvfunc.klass:
-        funcname_qualifier = cvfunc.klass.name
-    else:
-        funcname_qualifier = ""
     # qualifiler_elems: ["cv", "NsName1", "Class1"]
-    qualifier_elems = funcname_qualifier.split(".")
+    qualifier_elems = current_qualifier.split(".")
     # qualifier_candidates: ["cv.NsName1.Class1", "cv.NsName1", "cv"]
     qualifier_candidates = [".".join(qualifier_elems[0:i]) for i in range(len(qualifier_elems), 0, -1)]
     for qualifier_candidate in qualifier_candidates:
@@ -468,16 +486,36 @@ def parse_headers(headers:list[str], log_dir:str|None=None) -> CvApi:
     cvapi = _parse_headers(headers)
     supported_primitive_types = gen_supported_primitive_types()
     supported_typenames = gen_supported_typenames(cvapi)
+    # Set qname of public members
+    for _, cvklass in cvapi.cvklasses.items():
+        if cvklass.ns:
+            current_qualifier = cvklass.ns.name
+        elif cvklass.klass:
+            current_qualifier = cvklass.klass.name
+        else:
+            current_qualifier = ""
+        for prop in cvklass.props:
+            tp_qname = check_qname(prop.tp, current_qualifier, supported_primitive_types, supported_typenames)
+            if tp_qname is None:
+                print(f"[Error] Could not find qname of public member: {cvklass.name}.{prop.name}")
+                exit(1)
+            prop.tp_qname = tp_qname
     # Set qname of each arg
     for _, cvfunc in cvapi.cvfuncs.items():
         for var in cvfunc.variants:
-            rettype_qname = check_qname(var.rettype, cvfunc, supported_primitive_types, supported_typenames)
+            if cvfunc.ns:
+                current_qualifier = cvfunc.ns.name
+            elif cvfunc.klass:
+                current_qualifier = cvfunc.klass.name
+            else:
+                current_qualifier = ""
+            rettype_qname = check_qname(var.rettype, current_qualifier, supported_primitive_types, supported_typenames)
             if rettype_qname is None:
                 print(f"[Error] Could not find qname of rettype: {var.rettype} {cvfunc.name}")
                 exit(1)
             var.rettype_qname = rettype_qname
             for arg in var.args:
-                tp_qname = check_qname(arg.tp, cvfunc, supported_primitive_types, supported_typenames)
+                tp_qname = check_qname(arg.tp, current_qualifier, supported_primitive_types, supported_typenames)
                 if tp_qname is None:
                     print(f"[Error] Could not find qname argtype: {arg.tp} {cvfunc.name}")
                     exit(1)
