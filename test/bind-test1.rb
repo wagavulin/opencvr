@@ -212,6 +212,18 @@ class BindTest < Test::Unit::TestCase
     #assert_equal(CV2::Ns1::Ns11.SubSubC1_smethod1(10), 30)
   end
 
+  def test_public_member
+    s = CV2::Classtest2::S1.new
+    assert_equal(10, s.a00)
+    s.a00 = 20
+    assert_equal(20, s.a00)
+    assert_equal("aa", s.s00)
+    s.s00 = "bb"
+    assert_equal("bb", s.s00)
+    assert_equal(2.0, s.f00)
+    s.f00 = 3.0
+  end
+
   def test_shared_ptr_retval
     fizz = CV2::createFizz()
     assert_equal(fizz.method1(), 444)
