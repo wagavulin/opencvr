@@ -84,11 +84,10 @@ private:
 };
 
 struct CV_EXPORTS_W S1 {
-    S1() : a00(10), s00("aa"), f00(2.0), c1(1.5) {}
+    S1() : a00(10), s00("aa"), f00(2.0) {}
     CV_PROP_RW int a00;
     CV_PROP_RW std::string s00;
     CV_PROP float f00;
-    CV_PROP_RW C1 c1;
 };
 }
 
