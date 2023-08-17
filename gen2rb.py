@@ -384,9 +384,6 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
             else:
                 if a.outputarg == True:
                     vvd_names.append(a.name)
-                    vvd_value_var_names.append(f"value_{a.name}")
-                    vvd_corr_raw_var_names.append(f"raw_{a.name}")
-                    rsa_num_optional_args += 1
             if a.outputarg:
                 cac_raw_out_var_names.append(f"raw_{a.name}")
                 rh_raw_var_names.append(f"raw_{a.name}")
