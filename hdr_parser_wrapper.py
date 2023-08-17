@@ -480,7 +480,7 @@ def _dump_api(cvapi:CvApi,log_dir:str):
             for var_i, var in enumerate(cvfunc.variants, 1):
                 print(f"{cvfunc.name} {var_i} {var.rettype_qname}", file=f)
                 for arg in var.args:
-                    print(f"  {arg.tp} {arg.tp_qname}", file=f)
+                    print(f"  {arg.tp} {arg.tp_qname} {arg.inputarg} {arg.outputarg}", file=f)
 
 def parse_headers(headers:list[str], log_dir:str|None=None) -> CvApi:
     cvapi = _parse_headers(headers)

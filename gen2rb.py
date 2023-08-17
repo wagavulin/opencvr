@@ -779,4 +779,13 @@ for _, cvfunc in api.cvfuncs.items():
         if var.rettype_qname in api.cvklasses.keys():
             tmp_instance_used_as_retval_types.add(var.rettype_qname)
 g_instance_used_as_retval_types = list(tmp_instance_used_as_retval_types)
+with (open(f"{g_out_dir}/log-unsupported-retvals.txt", "w") as fr,
+      open(f"{g_out_dir}/log-unsupported-args.txt", "w") as fa):
+    for _, cvfunc in api.cvfuncs.items():
+        for var in cvfunc.variants:
+            if not check_rettype_supported(var.rettype_qname):
+                print(f"{var.rettype_qname}", file=fr)
+            for arg in var.args:
+                if not check_argtype_supported(arg.tp_qname):
+                    print(f"{arg.tp_qname}", file=fa)
 generate_code(api)
