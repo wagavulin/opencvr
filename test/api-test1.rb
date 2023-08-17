@@ -67,4 +67,37 @@ class ApiTest < Test::Unit::TestCase
     CV2::imwrite("#{@out_dir}/findContours1.png", img_c2)
     assert_equal(CV2.imread("#{@out_dir}/findContours1.png"), CV2.imread("#{@ex_dir}/findContours1.png"))
   end
+
+  def test_aruco1
+    dict = CV2::Aruco.getPredefinedDictionary(CV2::Aruco::DICT_6X6_250)
+    marker = Numo::UInt8.zeros(200, 200, 1)
+    marker = CV2::Aruco.generateImageMarker(dict, 23, 200, 1)
+    CV2.imwrite("#{@out_dir}/aruco-marker23.png", marker)
+    assert_equal(CV2.imread("#{@out_dir}/aruco-marker23.png"), CV2.imread("#{@ex_dir}/aruco-marker23.png"))
+  end
+
+  def test_aruco2
+    img = CV2.imread("#{@in_dir}/singlemarkersoriginal.jpg")
+    params = CV2::Aruco::DetectorParameters.new()
+    dict = CV2::Aruco.getPredefinedDictionary(CV2::Aruco::DICT_6X6_250)
+    detector = CV2::Aruco::ArucoDetector.new(dict, params)
+    corners, ids, rejectedImgPoints = detector.detectMarkers(img)
+    out_img = img.clone()
+    CV2::Aruco.drawDetectedMarkers(out_img, corners, ids)
+    CV2.imwrite("#{@out_dir}/out-aruco2.jpg", out_img)
+    assert_equal(CV2.imread("#{@ex_dir}/out-aruco2.jpg"), CV2.imread("#{@out_dir}/out-aruco2.jpg"))
+  end
+
+  def test_threshold
+    img = CV2.imread("../cvimage/sudoku.png", CV2::IMREAD_GRAYSCALE)
+    ret, out_img1 = CV2.threshold(img, 50, 255, CV2::THRESH_BINARY)
+    CV2.imwrite("#{@out_dir}/out-thresh1.jpg", out_img1)
+    assert_equal(CV2.imread("#{@ex_dir}/out-thresh1.jpg"), CV2.imread("#{@out_dir}/out-thresh1.jpg"))
+    ret, out_img2 = CV2.threshold(img, 50, 255, CV2::THRESH_BINARY + CV2::THRESH_OTSU)
+    CV2.imwrite("#{@out_dir}/out-thresh2.jpg", out_img2)
+    assert_equal(CV2.imread("#{@ex_dir}/out-thresh2.jpg"), CV2.imread("#{@out_dir}/out-thresh2.jpg"))
+    out_img3 = CV2.adaptiveThreshold(img, 255, CV2::ADAPTIVE_THRESH_GAUSSIAN_C, CV2::THRESH_BINARY, 51, 20)
+    CV2.imwrite("#{@out_dir}/out-thresh3.jpg", out_img3)
+    assert_equal(CV2.imread("#{@ex_dir}/out-thresh3.jpg"), CV2.imread("#{@out_dir}/out-thresh3.jpg"))
+  end
 end
