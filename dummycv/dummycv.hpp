@@ -91,6 +91,22 @@ struct CV_EXPORTS_W S1 {
 };
 }
 
+namespace classtest3 {
+
+class CV_EXPORTS_W P1 {
+public:
+    CV_WRAP int method1(int a) { return a + m_value1; }
+private:
+    int m_value1{10};
+};
+class CV_EXPORTS_W C1 : public P1 { // inherit non-abstract class
+public:
+    CV_WRAP int method2(int a) { return a + m_value2; }
+private:
+    int m_value2{20};
+};
+}
+
 // global functions for test arguments and retval
 CV_EXPORTS_W int bindTest1(int a) { return a+a; } // Simple function
 // CV_EXPORTS_W double bindTest1(int a, CV_IN_OUT Point& b, CV_OUT int* c, int d=10, RNG* rng=0, double e=1.2);

@@ -229,6 +229,14 @@ class BindTest < Test::Unit::TestCase
     s.f00 = 3.0
   end
 
+  def test_inheritance
+    p1 = CV2::Classtest3::P1.new
+    assert_equal(11, p1.method1(1))
+    c1 = CV2::Classtest3::C1.new
+    assert_equal(12, c1.method1(2))
+    assert_equal(22, c1.method2(2))
+  end
+
   def test_shared_ptr_retval
     fizz = CV2::createFizz()
     assert_equal(fizz.method1(), 444)

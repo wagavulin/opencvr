@@ -163,6 +163,14 @@ def get_namespace_of_func(func:CvFunc):
         exit(1)
     return ret
 
+def get_root_class(klass:CvKlass) -> CvKlass:
+    root_klass = klass
+    while True:
+        if not root_klass.parent_klass:
+            break
+        root_klass = root_klass.parent_klass
+    return root_klass
+
 _g_abstract_classes = [
     "cv.Ns1.Ns11.SubSubI2",
     "cv.Algorithm",
@@ -459,8 +467,11 @@ def generate_wrapper_function_impl(f:typing.TextIO, cvfunc:CvFunc, log_f):
             wrap_struct = f"Wrap_{klassname_us}"
             data_type_instance = f"{klassname_us}_type"
             ctor_cname = cvfunc.klass.name.replace(".", '::')
-            f.write(f"            struct {wrap_struct} *ptr;\n")
-            f.write(f"            TypedData_Get_Struct(self, struct {wrap_struct}, &{data_type_instance}, ptr);\n")
+            root_klass = get_root_class(cvfunc.klass)
+            root_klassname_us = root_klass.name.replace(".", "_")
+            root_wrap_struct = f"Wrap_{root_klassname_us}"
+            f.write(f"            struct {root_wrap_struct} *ptr;\n")
+            f.write(f"            TypedData_Get_Struct(self, struct {root_wrap_struct}, &{data_type_instance}, ptr);\n")
             args_str = ", ".join(cac_args)
             f.write(f"            ptr->v = new {ctor_cname}({args_str});\n")
         else:
@@ -594,10 +605,19 @@ def generate_code(api:CvApi):
             wrap_struct = f"struct Wrap_{us_klass_name}"     # struct Wrap_cv_Ns1_Ns11_Foo
             qname = klass.name.replace(".", "::")            # "cv::Ns1::Ns11::Foo"
             isabstract = check_is_abstract_class(klass)
+            root_klass = get_root_class(klass)
+            root_qname = root_klass.name.replace(".", "::")
+            root_us_klass_name = root_klass.name.replace(".", "_")
+            root_c_klass = f'c{root_us_klass_name}'
+            root_wrap_struct = f"struct Wrap_{root_us_klass_name}"
+            if klass.parent_klass:
+                parent_class_object = root_c_klass
+            else:
+                parent_class_object = "rb_cObject"
             # Write rbopenv_classregistration.hpp
             print(f"{{", file=fcr)
             print(f"    VALUE parent_mod = get_parent_module_by_wname(mCV2, \"{parent_mod_name}\");", file=fcr)
-            print(f'    {c_klass} = rb_define_class_under(parent_mod, "{cvrb_klass_basename}", rb_cObject);', file=fcr)
+            print(f'    {c_klass} = rb_define_class_under(parent_mod, "{cvrb_klass_basename}", {parent_class_object});', file=fcr)
             print(f"    rb_define_alloc_func({c_klass}, wrap_{us_klass_name}_alloc);", file=fcr)
             if not isabstract:
                 has_ctor = False
@@ -636,35 +656,40 @@ def generate_code(api:CvApi):
 
             # Write rbopenv_wrapclass.hpp
             fwc.write(f"static VALUE {c_klass};\n")
-            fwc.write(f"{wrap_struct} {{\n")
-            fwc.write(f"    Ptr<{qname}> v;\n")
-            fwc.write(f"}};\n")
-            fwc.write(f"static void wrap_{us_klass_name}_free({wrap_struct}* ptr){{\n")
-            fwc.write(f"    ptr->v.reset();\n")
-            fwc.write(f"    ruby_xfree(ptr);\n")
-            fwc.write(f"}};\n")
+            if not klass.parent_klass:
+                fwc.write(f"{wrap_struct} {{\n")
+                fwc.write(f"    Ptr<{qname}> v;\n")
+                fwc.write(f"}};\n")
+                fwc.write(f"static void wrap_{us_klass_name}_free({wrap_struct}* ptr){{\n")
+                fwc.write(f"    ptr->v.reset();\n")
+                fwc.write(f"    ruby_xfree(ptr);\n")
+                fwc.write(f"}};\n")
+            if klass.parent_klass:
+                parent_data_type_ptr = f"&{root_us_klass_name}_type"
+            else:
+                parent_data_type_ptr = "NULL"
             fwc.write(f"static const rb_data_type_t {us_klass_name}_type {{\n")
             fwc.write(f"    \"{c_klass}\",\n")
-            fwc.write(f"    {{NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_{us_klass_name}_free), NULL}},\n")
-            fwc.write(f"    NULL, NULL,\n")
+            fwc.write(f"    {{NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_{root_us_klass_name}_free), NULL}},\n")
+            fwc.write(f"    {parent_data_type_ptr}, NULL,\n")
             fwc.write(f"    RUBY_TYPED_FREE_IMMEDIATELY\n")
             fwc.write(f"}};\n")
             fwc.write(f"static Ptr<{qname}> get_{us_klass_name}(VALUE self){{\n")
-            fwc.write(f"    {wrap_struct}* ptr;\n")
-            fwc.write(f"    TypedData_Get_Struct(self, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
-            fwc.write(f"    return ptr->v;\n")
+            fwc.write(f"    {root_wrap_struct}* ptr;\n")
+            fwc.write(f"    TypedData_Get_Struct(self, {root_wrap_struct}, &{us_klass_name}_type, ptr);\n")
+            fwc.write(f"    return std::static_pointer_cast<{qname}>(ptr->v);\n")
             fwc.write(f"}}\n")
             fwc.write(f"static VALUE wrap_{us_klass_name}_alloc(VALUE klass){{\n")
-            fwc.write(f"    {wrap_struct}* ptr = nullptr;\n")
-            fwc.write(f"    VALUE ret = TypedData_Make_Struct(klass, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+            fwc.write(f"    {root_wrap_struct}* ptr = nullptr;\n")
+            fwc.write(f"    VALUE ret = TypedData_Make_Struct(klass, {root_wrap_struct}, &{us_klass_name}_type, ptr);\n")
             fwc.write(f"    return ret;\n")
             fwc.write(f"}}\n")
             fwc.write(f"template<>\n")
             fwc.write(f"VALUE rbopencv_from(const Ptr<{qname}>& value){{\n")
             fwc.write(f"    TRACE_PRINTF(\"[rbopencv_from Ptr<{qname}>]\\n\");\n")
-            fwc.write(f"    {wrap_struct} *ptr;\n")
-            fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({c_klass});\n")
-            fwc.write(f"    TypedData_Get_Struct(a, {wrap_struct}, &{us_klass_name}_type, ptr);\n")
+            fwc.write(f"    {root_wrap_struct} *ptr;\n")
+            fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({root_c_klass});\n")
+            fwc.write(f"    TypedData_Get_Struct(a, {root_wrap_struct}, &{us_klass_name}_type, ptr);\n")
             fwc.write(f"    ptr->v = value;\n")
             fwc.write(f"    return a;\n")
             fwc.write(f"}}\n")
