@@ -173,6 +173,8 @@ def get_root_class(klass:CvKlass) -> CvKlass:
 
 _g_abstract_classes = [
     "cv.Ns1.Ns11.SubSubI2",
+    "cv.classtest3.A1",
+    "cv.classtest3.A2",
     "cv.Algorithm",
     "cv.ml.ANN_MLP",
     "cv.ml.Boost",
@@ -535,6 +537,7 @@ def generate_code(api:CvApi):
     for _, klass in api.cvklasses.items():
         sorted_klasses.append(klass)
     sorted(sorted_klasses, key=lambda klass: klass.name)
+    sorted_klasses = sorted(sorted_klasses, key=lambda klass: klass.depth)
 
     with open(f"{g_out_dir}/rbopencv_namespaceregistration.hpp", "w") as f:
         for ns in sorted_namespaces:
@@ -605,13 +608,14 @@ def generate_code(api:CvApi):
             wrap_struct = f"struct Wrap_{us_klass_name}"     # struct Wrap_cv_Ns1_Ns11_Foo
             qname = klass.name.replace(".", "::")            # "cv::Ns1::Ns11::Foo"
             isabstract = check_is_abstract_class(klass)
+            #parent_or_this_klass = klass.parent_klass if klass.parent_klass else klass
             root_klass = get_root_class(klass)
-            root_qname = root_klass.name.replace(".", "::")
+            #root_qname = root_klass.name.replace(".", "::")
             root_us_klass_name = root_klass.name.replace(".", "_")
-            root_c_klass = f'c{root_us_klass_name}'
+            #root_c_klass = f'c{root_us_klass_name}'
             root_wrap_struct = f"struct Wrap_{root_us_klass_name}"
             if klass.parent_klass:
-                parent_class_object = root_c_klass
+                parent_class_object = "c" + klass.parent_klass.name.replace(".", "_")
             else:
                 parent_class_object = "rb_cObject"
             # Write rbopenv_classregistration.hpp
@@ -665,9 +669,13 @@ def generate_code(api:CvApi):
                 fwc.write(f"    ruby_xfree(ptr);\n")
                 fwc.write(f"}};\n")
             if klass.parent_klass:
-                parent_data_type_ptr = f"&{root_us_klass_name}_type"
+                parent_data_type_ptr = "&" + klass.parent_klass.name.replace(".", "_") + "_type"
             else:
                 parent_data_type_ptr = "NULL"
+            if root_klass.name in _g_abstract_classes:
+                cast_type = "std::dynamic_pointer_cast"
+            else:
+                cast_type = "std::static_pointer_cast"
             fwc.write(f"static const rb_data_type_t {us_klass_name}_type {{\n")
             fwc.write(f"    \"{c_klass}\",\n")
             fwc.write(f"    {{NULL, reinterpret_cast<RUBY_DATA_FUNC>(wrap_{root_us_klass_name}_free), NULL}},\n")
@@ -677,7 +685,7 @@ def generate_code(api:CvApi):
             fwc.write(f"static Ptr<{qname}> get_{us_klass_name}(VALUE self){{\n")
             fwc.write(f"    {root_wrap_struct}* ptr;\n")
             fwc.write(f"    TypedData_Get_Struct(self, {root_wrap_struct}, &{us_klass_name}_type, ptr);\n")
-            fwc.write(f"    return std::static_pointer_cast<{qname}>(ptr->v);\n")
+            fwc.write(f"    return {cast_type}<{qname}>(ptr->v);\n")
             fwc.write(f"}}\n")
             fwc.write(f"static VALUE wrap_{us_klass_name}_alloc(VALUE klass){{\n")
             fwc.write(f"    {root_wrap_struct}* ptr = nullptr;\n")
@@ -688,7 +696,7 @@ def generate_code(api:CvApi):
             fwc.write(f"VALUE rbopencv_from(const Ptr<{qname}>& value){{\n")
             fwc.write(f"    TRACE_PRINTF(\"[rbopencv_from Ptr<{qname}>]\\n\");\n")
             fwc.write(f"    {root_wrap_struct} *ptr;\n")
-            fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({root_c_klass});\n")
+            fwc.write(f"    VALUE a = wrap_{us_klass_name}_alloc({c_klass});\n")
             fwc.write(f"    TypedData_Get_Struct(a, {root_wrap_struct}, &{us_klass_name}_type, ptr);\n")
             fwc.write(f"    ptr->v = value;\n")
             fwc.write(f"    return a;\n")

@@ -100,4 +100,11 @@ class ApiTest < Test::Unit::TestCase
     CV2.imwrite("#{@out_dir}/out-thresh3.jpg", out_img3)
     assert_equal(CV2.imread("#{@ex_dir}/out-thresh3.jpg"), CV2.imread("#{@out_dir}/out-thresh3.jpg"))
   end
+
+  def test_orb1
+    orb = CV2::ORB::create()
+    assert_equal("Feature2D.ORB", orb.getDefaultName())
+    assert_equal(31, orb.getPatchSize())
+    assert_equal(32, orb.descriptorSize())
+  end
 end

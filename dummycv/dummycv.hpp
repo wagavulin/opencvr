@@ -105,6 +105,28 @@ public:
 private:
     int m_value2{20};
 };
+
+class CV_EXPORTS_W A1 {
+public:
+    CV_WRAP int method1(int a) { return a + m_value1; }
+    CV_WRAP virtual int method2(int a) = 0;
+private:
+    int m_value1{10};
+};
+class CV_EXPORTS_W A2 : public A1 {
+public:
+    CV_WRAP virtual int method3(int a) = 0;
+private:
+    int m_value2{20};
+};
+class CV_EXPORTS_W C2 : public A2 {
+public:
+    CV_WRAP static Ptr<C2> create() { return new C2(); }
+    CV_WRAP int method2(int a) override { return a + m_value3; }
+    CV_WRAP int method3(int a) override { return a + m_value3 + 1; }
+private:
+    int m_value3{20};
+};
 }
 
 // global functions for test arguments and retval

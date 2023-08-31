@@ -69,6 +69,7 @@ class CvKlass:
     str_parent_klass:str|None
     parent_klass:"CvKlass|None"
     child_klasses:list["CvKlass"]
+    depth:int               # depth in class hierarchy (root class is 0)
     no_bind:bool = False
 
 @dataclasses.dataclass
@@ -152,7 +153,7 @@ def _parse_headers(headers:list[str]) -> CvApi:
                             exit(0)
                     cvprops.append(CvProp(tp=prop_tp, tp_qname=None, name=prop_name, rw=prop_rw))
                 cvklass = CvKlass(filename=hdr, ns=None, klass=None, name=clsname, klasses=[], enums=[], props=cvprops, funcs=[],
-                    str_parent_klass=None, parent_klass=None, child_klasses=[])
+                    str_parent_klass=None, parent_klass=None, child_klasses=[], depth=-1)
                 cvklasses[clsname] = cvklass
                 cvklass.str_parent_klass = _parse_parent_klass_str(decl[1], clsname)
                 ns = ".".join(clsname.split(".")[0:-1])
@@ -280,7 +281,7 @@ def _parse_headers(headers:list[str]) -> CvApi:
                 exit(1)
             ns = cvnamespaces[nsname]
             klass = CvKlass(filename=cvenum.filename, ns=ns, klass=None, name=ns_or_klass, klasses=[], enums=[], props=[], funcs=[],
-                str_parent_klass=None, parent_klass=None, child_klasses=[], no_bind=True)
+                str_parent_klass=None, parent_klass=None, child_klasses=[], depth=-1, no_bind=True)
             cvklasses[ns_or_klass] = klass
             klass.enums.append(cvenum)
             cvenum.klass = klass
@@ -342,10 +343,10 @@ def _parse_headers(headers:list[str]) -> CvApi:
     # They are necessary because they are used with typedef
     if "cv.flann" in cvnamespaces.keys():
         klass_IndexParams = CvKlass(filename="(root)/opencv2/flann/miniflann.hpp", ns=cvnamespaces["cv.flann"], klass=None, name="cv.flann.IndexParams",
-            klasses=[], enums=[], props=[], funcs=[], str_parent_klass=None, parent_klass=None, child_klasses=[], no_bind=True)
+            klasses=[], enums=[], props=[], funcs=[], str_parent_klass=None, parent_klass=None, child_klasses=[], depth=-1, no_bind=True)
         cvklasses["cv.flann.IndexParams"] = klass_IndexParams
         klass_SearchParams = CvKlass(filename="(root)/opencv2/flann/miniflann.hpp", ns=cvnamespaces["cv.flann"], klass=None, name="cv.flann.SearchParams",
-            klasses=[], enums=[], props=[], funcs=[], str_parent_klass=klass_IndexParams.name, parent_klass=klass_IndexParams, child_klasses=[], no_bind=True)
+            klasses=[], enums=[], props=[], funcs=[], str_parent_klass=klass_IndexParams.name, parent_klass=klass_IndexParams, child_klasses=[], depth=-1, no_bind=True)
         cvklasses["cv.flann.SearchParams"] = klass_SearchParams
         klass_IndexParams.child_klasses.append(klass_SearchParams)
 
@@ -461,6 +462,16 @@ def check_qname(tp:str, current_qualifier:str, supported_primitive_types:list[st
             return template % qname
     return None
 
+def _set_klass_depth(cvklass:CvKlass):
+    depth = 0
+    pklass = cvklass
+    while True:
+        pklass = pklass.parent_klass
+        if not pklass:
+            break
+        depth += 1
+    cvklass.depth = depth
+
 def _dump_api(cvapi:CvApi,log_dir:str):
     os.makedirs(log_dir, exist_ok=True)
     with open(f"{log_dir}/log-cvnamespaces.txt", "w") as f:
@@ -520,6 +531,9 @@ def parse_headers(headers:list[str], log_dir:str|None=None) -> CvApi:
                     print(f"[Error] Could not find qname argtype: {arg.tp} {cvfunc.name}")
                     exit(1)
                 arg.tp_qname = tp_qname
+    # Set depth of each CvKlass
+    for _, cvklass in cvapi.cvklasses.items():
+        _set_klass_depth(cvklass)
 
     if log_dir:
         log_dir = log_dir.replace("\\", "/").rstrip("/")

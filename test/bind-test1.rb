@@ -235,6 +235,11 @@ class BindTest < Test::Unit::TestCase
     c1 = CV2::Classtest3::C1.new
     assert_equal(12, c1.method1(2))
     assert_equal(22, c1.method2(2))
+
+    c2 = CV2::Classtest3::C2.new
+    assert_equal(11, c2.method1(1))
+    assert_equal(22, c2.method2(2))
+    assert_equal(23, c2.method3(2))
   end
 
   def test_shared_ptr_retval
